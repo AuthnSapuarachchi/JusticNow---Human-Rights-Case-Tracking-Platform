@@ -1,13 +1,109 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
+}
+
+// --- ENUMS ---
+enum Role {
+  ADMIN
+  OFFICER
+}
+
+enum CaseStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  ACTION_REQUIRED
+  RESOLVED
+}
+
+// --- MODELS ---
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String   // Hashed via bcrypt
+  role      Role     @default(OFFICER)
+  name      String
+  
+  managedCases Case[]    @relation("OfficerCases")
+  messages     Message[] @relation("OfficerMessages")
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model TrackingCode {
+  id         Int      @id @default(autoincrement())
+  code       String   @unique // e.g., 'JN-100'
+  pin        String   // Hashed pin for citizen access
+  
+  case       Case?
+  
+  createdAt  DateTime @default(now())
+}
+
+model Case {
+  id             Int        @id @default(autoincrement())
+  description    String     @db.Text
+  incidentDate   DateTime?
+  status         CaseStatus @default(SUBMITTED)
+  
+  trackingCodeId Int          @unique
+  trackingCode   TrackingCode @relation(fields: [trackingCodeId], references: [id], onDelete: Cascade)
+  
+  officerId      Int?
+  officer        User?      @relation("OfficerCases", fields: [officerId], references: [id], onDelete: SetNull)
+  
+  evidence       Evidence[]
+  messages       Message[]
+  
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  @@index([officerId])
+}
+
+model Evidence {
+  id        Int      @id @default(autoincrement())
+  fileUrl   String   // Cloud storage URL (e.g., AWS S3 bucket link)
+  fileType  String   // 'IMAGE', 'VIDEO', 'AUDIO'
+  
+  caseId    Int
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+}
+
+model Message {
+  id        Int      @id @default(autoincrement())
+  content   String   @db.Text
+  isCitizen Boolean  @default(true) // True if sent by anonymous citizen
+  
+  caseId    Int
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  
+  officerId Int?
+  officer   User?    @relation("OfficerMessages", fields: [officerId], references: [id], onDelete: SetNull)
+  
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@index([officerId])
+}
+
+model LegalOrganization {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String   @db.Text
+  contactInfo String
+  website     String?
+  isVerified  Boolean  @default(false)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
