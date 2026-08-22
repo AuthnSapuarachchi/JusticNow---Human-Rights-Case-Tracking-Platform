@@ -64,7 +64,7 @@ export function CaseMessagingScreen({ caseId, currentUserId }: CaseMessagingScre
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
         <View style={styles.header}>
-          <Pressable accessibilityLabel="Go back" onPress={() => router.back()} style={styles.iconButton}><Ionicons name="arrow-back" size={24} color="#12212b" /></Pressable>
+          <Pressable accessibilityLabel="Go back" onPress={() => router.replace('/')} style={styles.iconButton}><Ionicons name="arrow-back" size={24} color="#12212b" /></Pressable>
           <View style={styles.headerCopy}>
             <Text style={styles.officerName}>{officerName}</Text>
             <View style={styles.caseLabel}><Ionicons name="lock-closed" size={12} color="#6c7b84" /><Text style={styles.caseId}>{caseId}</Text></View>
