@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable,
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getMessages, markMessageAsRead, Message, sendMessage } from '@/api/messagingApi';
+import { filterMessages } from '@/features/messaging/searchUtils';
 
 interface CaseMessagingScreenProps {
   caseId: string;
@@ -21,6 +22,8 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     let isMounted = true;
@@ -38,6 +41,15 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
 
   const officerName = useMemo(() => messages.find((message) => message.senderRole === 'Officer')?.senderName ?? 'Case Officer', [messages]);
   const visibleMessages = useMemo(() => participantId ? messages.filter((message) => message.senderId === participantId || message.senderId === currentUserId) : messages, [currentUserId, messages, participantId]);
+  const matchingMessages = useMemo(() => filterMessages(visibleMessages, searchQuery), [searchQuery, visibleMessages]);
+  const matchingMessageIds = useMemo(() => new Set(matchingMessages.map((message) => message.id)), [matchingMessages]);
+
+  const renderHighlightedContent = (content: string) => {
+    const query = searchQuery.trim();
+    if (!query) return content;
+    const parts = content.split(new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'ig'));
+    return parts.map((part, index) => part.toLocaleLowerCase() === query.toLocaleLowerCase() ? <Text key={`${part}-${index}`} style={styles.highlight}>{part}</Text> : part);
+  };
 
   const handleSend = async () => {
     const content = draft.trim();
@@ -71,22 +83,25 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
             <Text style={styles.officerName}>{officerName}</Text>
             <View style={styles.caseLabel}><Ionicons name="lock-closed" size={12} color="#6c7b84" /><Text style={styles.caseId}>{caseId}</Text></View>
           </View>
+          <Pressable accessibilityLabel="Search messages" onPress={() => setIsSearchOpen(true)} style={styles.iconButton}><Ionicons name="search" size={22} color="#12212b" /></Pressable>
           <Pressable accessibilityLabel="More options" style={styles.iconButton}><Ionicons name="ellipsis-vertical" size={22} color="#12212b" /></Pressable>
         </View>
+        {isSearchOpen ? <View style={styles.searchBar}><Ionicons color="#87939b" name="search" size={18} /><TextInput autoFocus onChangeText={(text) => { setSearchQuery(text); if (!text.trim()) setIsSearchOpen(false); }} placeholder="Search messages..." placeholderTextColor="#8a989e" style={styles.searchInput} value={searchQuery} /><Pressable accessibilityLabel="Close message search" onPress={() => { setSearchQuery(''); setIsSearchOpen(false); }} style={styles.closeSearchButton}><Ionicons color="#52646d" name="close" size={21} /></Pressable></View> : null}
         <View style={styles.encryptionPill}><Ionicons name="lock-closed" size={13} color="#28725b" /><Text style={styles.encryptionText}>End-to-end encrypted chat started</Text></View>
 
         {isLoading ? <View style={styles.centerState}><ActivityIndicator color="#28725b" /><Text style={styles.stateText}>Loading secure messages...</Text></View> : error && messages.length === 0 ? <View style={styles.centerState}><Text style={styles.errorText}>{error}</Text></View> : <FlatList
           contentContainerStyle={styles.messageList}
           data={visibleMessages}
           keyExtractor={(message) => message.id}
-          ListHeaderComponent={<Text style={styles.dateDivider}>Today</Text>}
+          ListHeaderComponent={<View><Text style={styles.dateDivider}>Today</Text>{searchQuery.trim() ? <Text style={styles.resultCount}>{matchingMessages.length} {matchingMessages.length === 1 ? 'result' : 'results'} found</Text> : null}{searchQuery.trim() && matchingMessages.length === 0 ? <Text style={styles.noResults}>No messages found</Text> : null}</View>}
           renderItem={({ item }) => {
             const isSent = item.senderId === currentUserId;
-            return <Pressable onPress={() => handleMarkRead(item)} style={[styles.messageRow, isSent && styles.sentRow]}>
+            const isSearchMatch = !searchQuery.trim() || matchingMessageIds.has(item.id);
+            return <Pressable onPress={() => handleMarkRead(item)} style={[styles.messageRow, isSent && styles.sentRow, !isSearchMatch && styles.dimmedMessage]}>
               {!item.isRead && !isSent ? <View style={styles.unreadDot} /> : null}
               <View style={[styles.bubble, isSent ? styles.sentBubble : styles.receivedBubble]}>
                 {!isSent ? <Text style={styles.senderRole}>{item.senderRole}</Text> : null}
-                <Text style={[styles.messageText, isSent && styles.sentMessageText]}>{item.content}</Text>
+                <Text style={[styles.messageText, isSent && styles.sentMessageText]}>{renderHighlightedContent(item.content)}</Text>
                 <View style={styles.messageMeta}><Text style={[styles.timestamp, isSent && styles.sentTimestamp]}>{formatTime(item.createdAt)}</Text>{isSent ? <Ionicons name="checkmark-done" size={16} color="#b8e4d7" /> : null}</View>
               </View>
             </Pressable>;
@@ -107,6 +122,7 @@ const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: '#f6f8f7' }, container: { flex: 1 },
   header: { alignItems: 'center', backgroundColor: '#ffffff', borderBottomColor: '#e5ebe8', borderBottomWidth: 1, flexDirection: 'row', paddingHorizontal: 12, paddingVertical: 12 }, iconButton: { alignItems: 'center', height: 40, justifyContent: 'center', width: 40 }, headerCopy: { flex: 1, marginLeft: 4 }, officerName: { color: '#12212b', fontSize: 17, fontWeight: '700' }, caseLabel: { alignItems: 'center', flexDirection: 'row', gap: 4, marginTop: 3 }, caseId: { color: '#6c7b84', fontSize: 12, fontWeight: '600' },
   encryptionPill: { alignItems: 'center', alignSelf: 'center', backgroundColor: '#e2f2ed', borderRadius: 20, flexDirection: 'row', gap: 6, marginTop: 18, paddingHorizontal: 13, paddingVertical: 8 }, encryptionText: { color: '#28725b', fontSize: 12, fontWeight: '600' }, centerState: { alignItems: 'center', flex: 1, gap: 10, justifyContent: 'center', padding: 24 }, stateText: { color: '#6c7b84', fontSize: 14 }, errorText: { color: '#a33b3b', fontSize: 14, textAlign: 'center' },
-  messageList: { paddingBottom: 12, paddingHorizontal: 16, paddingTop: 18 }, dateDivider: { alignSelf: 'center', color: '#7b898f', fontSize: 12, fontWeight: '700', marginBottom: 18, textTransform: 'uppercase' }, messageRow: { alignItems: 'flex-start', flexDirection: 'row', marginBottom: 14 }, sentRow: { justifyContent: 'flex-end' }, unreadDot: { backgroundColor: '#d06c43', borderRadius: 4, height: 8, marginRight: 6, marginTop: 10, width: 8 }, bubble: { borderRadius: 18, maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10 }, receivedBubble: { backgroundColor: '#ffffff', borderBottomLeftRadius: 5 }, sentBubble: { backgroundColor: '#1f5d56', borderBottomRightRadius: 5 }, senderRole: { color: '#28725b', fontSize: 11, fontWeight: '700', marginBottom: 4 }, messageText: { color: '#23343d', fontSize: 15, lineHeight: 21 }, sentMessageText: { color: '#ffffff' }, messageMeta: { alignItems: 'center', flexDirection: 'row', gap: 5, justifyContent: 'flex-end', marginTop: 5 }, timestamp: { color: '#8a989e', fontSize: 11 }, sentTimestamp: { color: '#b8d0cb' }, inlineError: { color: '#a33b3b', fontSize: 12, paddingBottom: 6, paddingHorizontal: 16 },
+  searchBar: { alignItems: 'center', backgroundColor: '#ffffff', borderBottomColor: '#e5ebe8', borderBottomWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 16, paddingVertical: 10 }, searchInput: { color: '#23343d', flex: 1, fontSize: 14, paddingVertical: 7 }, closeSearchButton: { alignItems: 'center', height: 32, justifyContent: 'center', width: 32 }, resultCount: { color: '#28725b', fontSize: 12, fontWeight: '700', marginBottom: 12, textAlign: 'center' }, noResults: { color: '#87939b', fontSize: 13, marginBottom: 14, textAlign: 'center' },
+  messageList: { paddingBottom: 12, paddingHorizontal: 16, paddingTop: 18 }, dateDivider: { alignSelf: 'center', color: '#7b898f', fontSize: 12, fontWeight: '700', marginBottom: 18, textTransform: 'uppercase' }, messageRow: { alignItems: 'flex-start', flexDirection: 'row', marginBottom: 14 }, dimmedMessage: { opacity: 0.3 }, sentRow: { justifyContent: 'flex-end' }, unreadDot: { backgroundColor: '#d06c43', borderRadius: 4, height: 8, marginRight: 6, marginTop: 10, width: 8 }, bubble: { borderRadius: 18, maxWidth: '82%', paddingHorizontal: 14, paddingVertical: 10 }, receivedBubble: { backgroundColor: '#ffffff', borderBottomLeftRadius: 5 }, sentBubble: { backgroundColor: '#1f5d56', borderBottomRightRadius: 5 }, senderRole: { color: '#28725b', fontSize: 11, fontWeight: '700', marginBottom: 4 }, messageText: { color: '#23343d', fontSize: 15, lineHeight: 21 }, sentMessageText: { color: '#ffffff' }, highlight: { backgroundColor: '#f5d36e', fontWeight: '800' }, messageMeta: { alignItems: 'center', flexDirection: 'row', gap: 5, justifyContent: 'flex-end', marginTop: 5 }, timestamp: { color: '#8a989e', fontSize: 11 }, sentTimestamp: { color: '#b8d0cb' }, inlineError: { color: '#a33b3b', fontSize: 12, paddingBottom: 6, paddingHorizontal: 16 },
   inputBar: { alignItems: 'center', backgroundColor: '#ffffff', borderTopColor: '#e5ebe8', borderTopWidth: 1, flexDirection: 'row', gap: 8, paddingHorizontal: 12, paddingVertical: 10 }, addButton: { alignItems: 'center', justifyContent: 'center', width: 32 }, input: { backgroundColor: '#f0f4f2', borderRadius: 22, color: '#23343d', flex: 1, fontSize: 14, maxHeight: 96, paddingHorizontal: 16, paddingVertical: 11 }, sendButton: { alignItems: 'center', backgroundColor: '#28725b', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, sendButtonDisabled: { backgroundColor: '#a8c3bb' },
 });
