@@ -1,35 +1,5 @@
-import { StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import { CaseMessagingScreen } from '@/features/messaging/screens/CaseMessagingScreen';
 
 export default function HomeScreen() {
-  return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedText type="title" style={styles.title}>
-          Hello, This is Gayal thilakarathna
-        </ThemedText>
-      </SafeAreaView>
-    </ThemedView>
-  );
+  return <CaseMessagingScreen caseId="JN-2026-0412" currentUserId="citizen-001" />;
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  safeArea: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  title: {
-    textAlign: 'center',
-  },
-});
