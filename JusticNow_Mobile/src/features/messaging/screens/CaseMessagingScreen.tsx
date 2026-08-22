@@ -9,11 +9,12 @@ import { getMessages, markMessageAsRead, Message, sendMessage } from '@/api/mess
 interface CaseMessagingScreenProps {
   caseId: string;
   currentUserId: string;
+  participantId?: string;
 }
 
 const formatTime = (createdAt: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(createdAt));
 
-export function CaseMessagingScreen({ caseId, currentUserId }: CaseMessagingScreenProps) {
+export function CaseMessagingScreen({ caseId, currentUserId, participantId }: CaseMessagingScreenProps) {
   const router = useRouter();
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
@@ -36,6 +37,7 @@ export function CaseMessagingScreen({ caseId, currentUserId }: CaseMessagingScre
   }, [caseId]);
 
   const officerName = useMemo(() => messages.find((message) => message.senderRole === 'Officer')?.senderName ?? 'Case Officer', [messages]);
+  const visibleMessages = useMemo(() => participantId ? messages.filter((message) => message.senderId === participantId || message.senderId === currentUserId) : messages, [currentUserId, messages, participantId]);
 
   const handleSend = async () => {
     const content = draft.trim();
@@ -64,7 +66,7 @@ export function CaseMessagingScreen({ caseId, currentUserId }: CaseMessagingScre
     <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
         <View style={styles.header}>
-          <Pressable accessibilityLabel="Go back" onPress={() => router.replace('/')} style={styles.iconButton}><Ionicons name="arrow-back" size={24} color="#12212b" /></Pressable>
+          <Pressable accessibilityLabel="Back to messages" onPress={() => router.replace('/messages')} style={styles.iconButton}><Ionicons name="arrow-back" size={24} color="#12212b" /></Pressable>
           <View style={styles.headerCopy}>
             <Text style={styles.officerName}>{officerName}</Text>
             <View style={styles.caseLabel}><Ionicons name="lock-closed" size={12} color="#6c7b84" /><Text style={styles.caseId}>{caseId}</Text></View>
@@ -75,7 +77,7 @@ export function CaseMessagingScreen({ caseId, currentUserId }: CaseMessagingScre
 
         {isLoading ? <View style={styles.centerState}><ActivityIndicator color="#28725b" /><Text style={styles.stateText}>Loading secure messages...</Text></View> : error && messages.length === 0 ? <View style={styles.centerState}><Text style={styles.errorText}>{error}</Text></View> : <FlatList
           contentContainerStyle={styles.messageList}
-          data={messages}
+          data={visibleMessages}
           keyExtractor={(message) => message.id}
           ListHeaderComponent={<Text style={styles.dateDivider}>Today</Text>}
           renderItem={({ item }) => {

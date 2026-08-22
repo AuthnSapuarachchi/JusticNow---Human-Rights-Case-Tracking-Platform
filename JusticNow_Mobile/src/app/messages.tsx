@@ -1,5 +1,5 @@
-import { CaseMessagingScreen } from '@/features/messaging/screens/CaseMessagingScreen';
+import { MessageInboxScreen } from '@/features/messaging/screens/MessageInboxScreen';
 
 export default function MessagesScreen() {
-  return <CaseMessagingScreen caseId="JN-2026-0412" currentUserId="citizen-001" />;
+  return <MessageInboxScreen />;
 }

@@ -21,6 +21,8 @@ const mockMessages: Message[] = [
   { id: 'message-003', caseId: 'JN-2026-0412', senderId: 'officer-014', senderName: 'Maya Perera', senderRole: 'Officer', content: 'A copy of the incident report would help us complete the review.', createdAt: '2026-08-22T09:20:00.000Z', isRead: false },
   { id: 'message-004', caseId: 'JN-2026-0412', senderId: 'citizen-001', senderName: 'You', senderRole: 'Citizen', content: 'I can send that today. I appreciate your help.', createdAt: '2026-08-22T09:24:00.000Z', isRead: true },
   { id: 'message-005', caseId: 'JN-2026-0412', senderId: 'officer-014', senderName: 'Maya Perera', senderRole: 'Officer', content: 'That would be perfect. I will notify you when the review progresses.', createdAt: '2026-08-22T09:26:00.000Z', isRead: false },
+  { id: 'message-006', caseId: 'JN-2026-0412', senderId: 'officer-022', senderName: 'Daniel Silva', senderRole: 'Officer', content: 'I have added a note from the review team to your case.', createdAt: '2026-08-21T15:40:00.000Z', isRead: true },
+  { id: 'message-007', caseId: 'JN-2026-0412', senderId: 'officer-022', senderName: 'Daniel Silva', senderRole: 'Officer', content: 'Please let us know if you have any questions.', createdAt: '2026-08-21T15:42:00.000Z', isRead: false },
 ];
 
 const wait = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration));
