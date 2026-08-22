@@ -2,6 +2,9 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const morgan = require('morgan');
+const caseRoutes = require('./routes/caseRoutes');
+const authRoutes = require('./routes/authRoutes');
+
 
 // Load environment variables
 dotenv.config();
@@ -19,8 +22,9 @@ app.get('/health', (req, res) => {
 });
 
 // We will mount our modular routes here later
-// app.use('/api/auth', authRoutes);
-// app.use('/api/reports', reportRoutes);
+app.use('/api/auth', authRoutes);
+// c
+app.use('/api/cases', caseRoutes);
 
 const PORT = process.env.PORT || 5000;
 

@@ -1,13 +1,112 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
+  provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
+}
+
+// --- ENUMS ---
+enum Role {
+  CITIZEN
+  OFFICER
+  ADMIN
+}
+
+enum CaseStatus {
+  SUBMITTED
+  UNDER_REVIEW
+  RESOLVED
+  CLOSED
+}
+
+// --- 1. ADMINISTRATIVE TABLES ---
+
+model User {
+  id             Int                @id @default(autoincrement())
+  email          String             @unique
+  password       String
+  name           String?
+  role           Role               @default(OFFICER)
+  
+  organizationId Int?
+  organization   LegalOrganization? @relation(fields: [organizationId], references: [id])
+  
+  messages       Message[]          
+  
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@map("users")
+}
+
+model LegalOrganization {
+  id           Int      @id @default(autoincrement())
+  name         String
+  contactEmail String
+  verified     Boolean  @default(false)
+  
+  officers     User[]   
+  
+  createdAt    DateTime @default(now())
+
+  @@map("legal_organizations")
+}
+
+
+// --- 2. CITIZEN & REPORTING TABLES ---
+
+model Case {
+  id           Int           @id @default(autoincrement())
+  description  String        @db.Text
+  status       CaseStatus    @default(SUBMITTED)
+  
+  trackingCode TrackingCode?
+  evidence     Evidence[]
+  messages     Message[]
+  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("cases")
+}
+
+model TrackingCode {
+  id     Int    @id @default(autoincrement())
+  code   String @unique
+  pin    String
+  
+  caseId Int    @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  @@map("tracking_codes")
+}
+
+model Evidence {
+  id        Int      @id @default(autoincrement())
+  fileUrl   String   
+  fileType  String   
+  
+  caseId    Int
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@map("evidence_items")
+}
+
+model Message {
+  id         Int      @id @default(autoincrement())
+  content    String   @db.Text
+  isFromUser Boolean  
+  
+  caseId     Int
+  case       Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  
+  officerId  Int?     
+  officer    User?    @relation(fields: [officerId], references: [id])
+  
+  createdAt  DateTime @default(now())
+
+  @@map("messages")
 }
