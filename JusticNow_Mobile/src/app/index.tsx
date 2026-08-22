@@ -10,6 +10,7 @@ export default function HomeScreen() {
 
   const handleTabPress = (tab: string) => {
     if (tab === NavTab.Home) router.replace('/');
+    if (tab === NavTab.Cases) router.push('/cases');
     if (tab === NavTab.Messages) router.push('/messages');
   };
 
@@ -38,10 +39,10 @@ export default function HomeScreen() {
 
         <View style={styles.sectionHeading}>
           <Text style={styles.sectionTitle}>Your active case</Text>
-          <Pressable onPress={() => router.push('/messages')}><Text style={styles.viewLink}>View messages</Text></Pressable>
+          <Pressable onPress={() => router.push('/cases')}><Text style={styles.viewLink}>View case</Text></Pressable>
         </View>
 
-        <View style={styles.caseCard}>
+        <Pressable onPress={() => router.push('/cases/case-0412')} style={styles.caseCard}>
           <View style={styles.caseCardTop}>
             <View style={styles.caseIcon}><Ionicons color="#2875d0" name="folder-open" size={22} /></View>
             <View style={styles.caseDetails}>
@@ -52,7 +53,7 @@ export default function HomeScreen() {
           </View>
           <View style={styles.progressTrack}><View style={styles.progressValue} /></View>
           <View style={styles.caseFooter}><Text style={styles.updatedText}>Updated today</Text><Text style={styles.progressText}>2 of 4 steps complete</Text></View>
-        </View>
+        </Pressable>
 
         <Text style={[styles.sectionTitle, styles.updatesTitle]}>Recent updates</Text>
         <Pressable onPress={() => router.push('/messages')} style={styles.updateRow}>
