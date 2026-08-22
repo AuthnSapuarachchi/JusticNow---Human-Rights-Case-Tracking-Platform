@@ -8,102 +8,105 @@ datasource db {
 
 // --- ENUMS ---
 enum Role {
-  ADMIN
+  CITIZEN
   OFFICER
+  ADMIN
 }
 
 enum CaseStatus {
   SUBMITTED
   UNDER_REVIEW
-  ACTION_REQUIRED
   RESOLVED
+  CLOSED
 }
 
-// --- MODELS ---
+// --- 1. ADMINISTRATIVE TABLES ---
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  password  String   // Hashed via bcrypt
-  role      Role     @default(OFFICER)
-  name      String
+  id             Int                @id @default(autoincrement())
+  email          String             @unique
+  password       String
+  name           String?
+  role           Role               @default(OFFICER)
   
-  managedCases Case[]    @relation("OfficerCases")
-  messages     Message[] @relation("OfficerMessages")
+  organizationId Int?
+  organization   LegalOrganization? @relation(fields: [organizationId], references: [id])
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  messages       Message[]          
+  
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@map("users")
+}
+
+model LegalOrganization {
+  id           Int      @id @default(autoincrement())
+  name         String
+  contactEmail String
+  verified     Boolean  @default(false)
+  
+  officers     User[]   
+  
+  createdAt    DateTime @default(now())
+
+  @@map("legal_organizations")
+}
+
+
+// --- 2. CITIZEN & REPORTING TABLES ---
+
+model Case {
+  id           Int           @id @default(autoincrement())
+  description  String        @db.Text
+  status       CaseStatus    @default(SUBMITTED)
+  
+  trackingCode TrackingCode?
+  evidence     Evidence[]
+  messages     Message[]
+  
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@map("cases")
 }
 
 model TrackingCode {
-  id         Int      @id @default(autoincrement())
-  code       String   @unique // e.g., 'JN-100'
-  pin        String   // Hashed pin for citizen access
+  id     Int    @id @default(autoincrement())
+  code   String @unique
+  pin    String
   
-  case       Case?
-  
-  createdAt  DateTime @default(now())
-}
+  caseId Int    @unique
+  case   Case   @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
-model Case {
-  id             Int        @id @default(autoincrement())
-  description    String     @db.Text
-  incidentDate   DateTime?
-  status         CaseStatus @default(SUBMITTED)
-  
-  trackingCodeId Int          @unique
-  trackingCode   TrackingCode @relation(fields: [trackingCodeId], references: [id], onDelete: Cascade)
-  
-  officerId      Int?
-  officer        User?      @relation("OfficerCases", fields: [officerId], references: [id], onDelete: SetNull)
-  
-  evidence       Evidence[]
-  messages       Message[]
-  
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
-
-  @@index([officerId])
+  @@map("tracking_codes")
 }
 
 model Evidence {
   id        Int      @id @default(autoincrement())
-  fileUrl   String   // Cloud storage URL (e.g., AWS S3 bucket link)
-  fileType  String   // 'IMAGE', 'VIDEO', 'AUDIO'
+  fileUrl   String   
+  fileType  String   
   
   caseId    Int
   case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
   
   createdAt DateTime @default(now())
 
-  @@index([caseId])
+  @@map("evidence_items")
 }
 
 model Message {
-  id        Int      @id @default(autoincrement())
-  content   String   @db.Text
-  isCitizen Boolean  @default(true) // True if sent by anonymous citizen
+  id         Int      @id @default(autoincrement())
+  content    String   @db.Text
+  isFromUser Boolean  
   
-  caseId    Int
-  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  caseId     Int
+  case       Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
   
-  officerId Int?
-  officer   User?    @relation("OfficerMessages", fields: [officerId], references: [id], onDelete: SetNull)
+  officerId  Int?     
+  officer    User?    @relation(fields: [officerId], references: [id])
   
-  createdAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
-  @@index([caseId])
-  @@index([officerId])
-}
-
-model LegalOrganization {
-  id          Int      @id @default(autoincrement())
-  name        String
-  description String   @db.Text
-  contactInfo String
-  website     String?
-  isVerified  Boolean  @default(false)
-  
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  @@map("messages")
 }
