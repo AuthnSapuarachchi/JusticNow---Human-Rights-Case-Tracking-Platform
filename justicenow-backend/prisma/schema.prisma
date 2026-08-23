@@ -19,8 +19,14 @@ enum CaseStatus {
   RESOLVED
 }
 
-// --- MODELS ---
+enum ViolationCategory {
+  WORKPLACE_DISCRIMINATION
+  HUMAN_RIGHTS_VIOLATION
+  DIGITAL_PRIVACY
+  OTHER
+}
 
+// --- 1. ADMINISTRATIVE TABLES ---
 model User {
   id        Int      @id @default(autoincrement())
   email     String   @unique
@@ -31,8 +37,48 @@ model User {
   managedCases Case[]    @relation("OfficerCases")
   messages     Message[] @relation("OfficerMessages")
   
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  messages       Message[]          
+  
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@map("users")
+}
+
+model LegalOrganization {
+  id           Int      @id @default(autoincrement())
+  name         String
+  contactEmail String
+  verified     Boolean  @default(false)
+  
+  officers     User[]   
+  
+  createdAt    DateTime @default(now())
+
+  @@map("legal_organizations")
+}
+
+// --- 2. CITIZEN & REPORTING TABLES ---
+model Case {
+  id             Int               @id @default(autoincrement())
+  description    String            @db.Text
+  status         CaseStatus        @default(SUBMITTED)
+  
+  // New UI Fields
+  isAnonymous    Boolean           @default(true)
+  category       ViolationCategory @default(OTHER)
+  incidentDate   DateTime?         
+  location       String?           
+  actionRequest  String?           // Powers your frontend dashboard banner
+  
+  trackingCode   TrackingCode?
+  evidence       Evidence[]
+  messages       Message[]
+  
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@map("cases")
 }
 
 model TrackingCode {
@@ -70,6 +116,10 @@ model Evidence {
   id        Int      @id @default(autoincrement())
   fileUrl   String   // Cloud storage URL (e.g., AWS S3 bucket link)
   fileType  String   // 'IMAGE', 'VIDEO', 'AUDIO'
+  
+  // New UI Fields
+  fileName  String?  
+  fileSize  String?  
   
   caseId    Int
   case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
