@@ -11,6 +11,7 @@ const { protectRoute, authorizeRoles } = require('../middleware/authMiddleware')
 
 // 🌍 PUBLIC CITIZEN ROUTES (No Token Needed)
 router.post('/', submitCase);
+router.post('/track', trackCase);
 
 // 🛡️ PROTECTED OFFICER ROUTES (Token Needed)
 

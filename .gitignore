@@ -1,0 +1,25 @@
+# Dependencies
+node_modules/
+
+# Expo and build output
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Generated native folders
+ios/
+android/
+
+# Local environment files
+.env*.local
+
+# TypeScript and debug output
+*.tsbuildinfo
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# Local secrets and OS files
+*.pem
+.DS_Store
