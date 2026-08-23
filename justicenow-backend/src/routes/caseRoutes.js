@@ -1,9 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const { submitCase, trackCase } = require('../controllers/caseController');
 
-// Because we mount this on '/api/cases' in server.js, the root '/' means the full URL is '/api/cases'
+// 1. Import Controllers
+const { submitCase, trackCase } = require('../controllers/caseController');
+// const { getOfficerCases } = require('../controllers/officerController'); // Example for your teammates
+
+// 2. Import Middleware
+const { protectRoute, authorizeRoles } = require('../middlewares/authMiddleware');
+
+
+// 🌍 PUBLIC CITIZEN ROUTES (No Token Needed)
 router.post('/', submitCase);
 router.post('/track', trackCase);
+
+// 🛡️ PROTECTED OFFICER ROUTES (Token Needed)
+
+// router.get('/queue', protectRoute, authorizeRoles('OFFICER', 'ADMIN'), getOfficerCases);
 
 module.exports = router;
