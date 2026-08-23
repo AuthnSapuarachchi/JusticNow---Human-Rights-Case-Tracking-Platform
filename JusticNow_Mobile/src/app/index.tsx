@@ -1,82 +1,116 @@
+import React from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, BackHandler } from 'react-native';
 import { useRouter } from 'expo-router';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { BottomNavBar, NavTab } from '@/components/BottomNavBar'; // Keeping your teammate's nav bar
 
-import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
-
-export default function HomeScreen() {
+export default function CitizenLandingPage() {
   const router = useRouter();
 
-  const handleTabPress = (tab: string) => {
-    if (tab === NavTab.Home) router.replace('/');
-    if (tab === NavTab.Cases) router.push('/cases');
-    if (tab === NavTab.Messages) router.push('/messages');
+  // Safety feature: Instantly closes the app (works on Android)
+  const handleQuickExit = () => {
+    BackHandler.exitApp();
   };
 
   return (
-    <SafeAreaView edges={['top']} style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <View style={styles.header}>
-          <View>
-            <Text style={styles.greeting}>Good morning</Text>
-            <Text style={styles.name}>Alex Morgan</Text>
+    <SafeAreaView style={styles.container}>
+      {/* Top Header */}
+      <View style={styles.header}>
+        <Ionicons name="hammer-outline" size={24} color="#1D4ED8" />
+        <Text style={styles.headerTitle}>JusticeNow</Text>
+        <Ionicons name="notifications-outline" size={24} color="#64748B" />
+      </View>
+
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        
+        {/* Hero Section */}
+        <View style={styles.heroSection}>
+          <Text style={styles.heroTitle}>Your Voice, Your Justice.{"\n"}Reported Securely.</Text>
+          <Text style={styles.heroSubtitle}>
+            We provide a secure, encrypted platform to report human rights violations and connect with legal professionals.
+          </Text>
+        </View>
+
+        {/* Action Buttons */}
+        <View style={styles.actionContainer}>
+          {/* 🚀 This links to your multi-step form! */}
+          <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/report')}>
+            <Ionicons name="document-text-outline" size={20} color="#fff" style={styles.btnIcon} />
+            <Text style={styles.primaryButtonText}>Start a Report</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.secondaryButton} onPress={() => console.log("Track Case clicked")}>
+            <Ionicons name="search-outline" size={20} color="#334155" style={styles.btnIcon} />
+            <Text style={styles.secondaryButtonText}>Track Existing Case</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Features List */}
+        <Text style={styles.sectionTitle}>Why JusticeNow?</Text>
+        
+        <View style={styles.featureCard}>
+          <View style={styles.iconBox}><Ionicons name="lock-closed-outline" size={22} color="#334155" /></View>
+          <View style={styles.featureText}>
+            <Text style={styles.featureTitle}>End-to-End Encryption</Text>
+            <Text style={styles.featureDesc}>Your data is secured and anonymized. Only you and authorized legal support can access your reports.</Text>
           </View>
-          <Pressable accessibilityLabel="Notifications" style={styles.notificationButton}>
-            <Ionicons color="#1d3440" name="notifications-outline" size={22} />
-            <View style={styles.notificationDot} />
-          </Pressable>
         </View>
 
-        <View style={styles.welcomePanel}>
-          <View style={styles.welcomeCopy}>
-            <Text style={styles.eyebrow}>JUSTICENOW</Text>
-            <Text style={styles.welcomeTitle}>Your case, clearly in view.</Text>
-            <Text style={styles.welcomeText}>Track updates and communicate securely with your case officer.</Text>
+        <View style={styles.featureCard}>
+          <View style={styles.iconBox}><Ionicons name="language-outline" size={22} color="#334155" /></View>
+          <View style={styles.featureText}>
+            <Text style={styles.featureTitle}>Local Language Support</Text>
+            <Text style={styles.featureDesc}>Report incidents and communicate securely in your native language with built-in translation assistance.</Text>
           </View>
-          <Ionicons color="#b9e4d5" name="shield-checkmark" size={58} />
         </View>
 
-        <View style={styles.sectionHeading}>
-          <Text style={styles.sectionTitle}>Your active case</Text>
-          <Pressable onPress={() => router.push('/cases')}><Text style={styles.viewLink}>View case</Text></Pressable>
-        </View>
-
-        <Pressable onPress={() => router.push('/cases/case-0412')} style={styles.caseCard}>
-          <View style={styles.caseCardTop}>
-            <View style={styles.caseIcon}><Ionicons color="#2875d0" name="folder-open" size={22} /></View>
-            <View style={styles.caseDetails}>
-              <Text style={styles.caseId}>JN-2026-0412</Text>
-              <Text style={styles.caseTitle}>Community rights inquiry</Text>
-            </View>
-            <View style={styles.statusBadge}><Text style={styles.statusText}>In review</Text></View>
+        <View style={styles.featureCard}>
+          <View style={styles.iconBox}><Ionicons name="shield-checkmark-outline" size={22} color="#334155" /></View>
+          <View style={styles.featureText}>
+            <Text style={styles.featureTitle}>Verified Legal Support</Text>
+            <Text style={styles.featureDesc}>Connect directly with vetted human rights organizations and legal professionals ready to assist.</Text>
           </View>
-          <View style={styles.progressTrack}><View style={styles.progressValue} /></View>
-          <View style={styles.caseFooter}><Text style={styles.updatedText}>Updated today</Text><Text style={styles.progressText}>2 of 4 steps complete</Text></View>
-        </Pressable>
-
-        <Text style={[styles.sectionTitle, styles.updatesTitle]}>Recent updates</Text>
-        <Pressable onPress={() => router.push('/messages')} style={styles.updateRow}>
-          <View style={styles.updateIcon}><Ionicons color="#28725b" name="chatbubble-ellipses" size={20} /></View>
-          <View style={styles.updateCopy}><Text style={styles.updateTitle}>New message from Maya Perera</Text><Text style={styles.updateSubtitle}>A copy of the incident report would help...</Text></View>
-          <Text style={styles.updateTime}>9:20 AM</Text>
-        </Pressable>
-        <View style={styles.tipRow}>
-          <Ionicons color="#d27b3d" name="information-circle-outline" size={22} />
-          <Text style={styles.tipText}>Keep your case documents and messages in one secure place.</Text>
         </View>
+
+        {/* Quick Exit Safety Button */}
+        <TouchableOpacity style={styles.quickExitButton} onPress={handleQuickExit}>
+          <Ionicons name="exit-outline" size={20} color="#fff" style={styles.btnIcon} />
+          <Text style={styles.quickExitText}>Quick Exit</Text>
+        </TouchableOpacity>
+
       </ScrollView>
-      <BottomNavBar activeTab={NavTab.Home} onTabPress={handleTabPress} />
+
+      {/* Reusing your teammate's Bottom Nav */}
+      <BottomNavBar activeTab={NavTab.Home} onTabPress={(tab) => console.log(tab)} />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { backgroundColor: '#f5f8f7', flex: 1 },
-  content: { paddingBottom: 105, paddingHorizontal: 20, paddingTop: 20 },
-  header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 24 },
-  greeting: { color: '#718088', fontSize: 14 }, name: { color: '#18303b', fontSize: 25, fontWeight: '800', marginTop: 3 },
-  notificationButton: { alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 22, height: 44, justifyContent: 'center', width: 44 }, notificationDot: { backgroundColor: '#d06c43', borderColor: '#ffffff', borderRadius: 4, borderWidth: 2, height: 10, position: 'absolute', right: 8, top: 8, width: 10 },
-  welcomePanel: { alignItems: 'center', backgroundColor: '#1f5d56', borderRadius: 18, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 28, padding: 20 }, welcomeCopy: { flex: 1, paddingRight: 12 }, eyebrow: { color: '#b9e4d5', fontSize: 11, fontWeight: '800', letterSpacing: 1.4 }, welcomeTitle: { color: '#ffffff', fontSize: 21, fontWeight: '800', lineHeight: 27, marginTop: 8 }, welcomeText: { color: '#d4eee7', fontSize: 13, lineHeight: 19, marginTop: 8 },
-  sectionHeading: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 }, sectionTitle: { color: '#18303b', fontSize: 18, fontWeight: '800' }, viewLink: { color: '#2875d0', fontSize: 12, fontWeight: '700' }, caseCard: { backgroundColor: '#ffffff', borderRadius: 16, padding: 16 }, caseCardTop: { alignItems: 'center', flexDirection: 'row' }, caseIcon: { alignItems: 'center', backgroundColor: '#e8f1fb', borderRadius: 12, height: 44, justifyContent: 'center', width: 44 }, caseDetails: { flex: 1, marginLeft: 12 }, caseId: { color: '#718088', fontSize: 11, fontWeight: '700' }, caseTitle: { color: '#213943', fontSize: 14, fontWeight: '700', marginTop: 4 }, statusBadge: { backgroundColor: '#e2f2ed', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 5 }, statusText: { color: '#28725b', fontSize: 11, fontWeight: '700' }, progressTrack: { backgroundColor: '#e7eeeb', borderRadius: 3, height: 6, marginTop: 18 }, progressValue: { backgroundColor: '#28725b', borderRadius: 3, height: 6, width: '50%' }, caseFooter: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }, updatedText: { color: '#87939b', fontSize: 11 }, progressText: { color: '#52646d', fontSize: 11, fontWeight: '600' }, updatesTitle: { marginBottom: 12, marginTop: 28 }, updateRow: { alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 16, flexDirection: 'row', padding: 14 }, updateIcon: { alignItems: 'center', backgroundColor: '#e2f2ed', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 }, updateCopy: { flex: 1, marginLeft: 11 }, updateTitle: { color: '#213943', fontSize: 13, fontWeight: '700' }, updateSubtitle: { color: '#87939b', fontSize: 11, marginTop: 4 }, updateTime: { color: '#87939b', fontSize: 10, alignSelf: 'flex-start' }, tipRow: { alignItems: 'center', backgroundColor: '#fff8ee', borderRadius: 14, flexDirection: 'row', gap: 10, marginTop: 16, padding: 14 }, tipText: { color: '#806549', flex: 1, fontSize: 12, lineHeight: 18 },
+  container: { flex: 1, backgroundColor: '#F8FAFC' },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
+  headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
+  scrollContent: { padding: 20, paddingBottom: 40 },
+  
+  heroSection: { alignItems: 'center', marginBottom: 24, marginTop: 10 },
+  heroTitle: { fontSize: 22, fontWeight: '900', color: '#1E293B', textAlign: 'center', lineHeight: 30, marginBottom: 12 },
+  heroSubtitle: { fontSize: 14, color: '#475569', textAlign: 'center', lineHeight: 20, paddingHorizontal: 10 },
+  
+  actionContainer: { marginBottom: 30, gap: 12 },
+  primaryButton: { backgroundColor: '#1D4ED8', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 8 },
+  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' },
+  secondaryButton: { backgroundColor: '#fff', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 8, borderWidth: 1, borderColor: '#CBD5E1' },
+  secondaryButtonText: { color: '#334155', fontSize: 16, fontWeight: '600' },
+  btnIcon: { marginRight: 8 },
+  
+  sectionTitle: { fontSize: 14, fontWeight: '700', color: '#475569', marginBottom: 16 },
+  
+  featureCard: { flexDirection: 'row', backgroundColor: '#fff', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: '#E2E8F0', marginBottom: 12 },
+  iconBox: { width: 40, height: 40, backgroundColor: '#F1F5F9', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 16 },
+  featureText: { flex: 1 },
+  featureTitle: { fontSize: 14, fontWeight: '700', color: '#1E293B', marginBottom: 4 },
+  featureDesc: { fontSize: 12, color: '#64748B', lineHeight: 18 },
+  
+  quickExitButton: { backgroundColor: '#DC2626', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 14, borderRadius: 30, width: 160, alignSelf: 'center', marginTop: 30 },
+  quickExitText: { color: '#fff', fontSize: 14, fontWeight: 'bold' }
 });
