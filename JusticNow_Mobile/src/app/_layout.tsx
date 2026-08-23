@@ -2,6 +2,8 @@ import { Slot } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
+import { I18nProvider } from '@/i18n';
+
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
@@ -9,5 +11,9 @@ export default function RootLayout() {
     SplashScreen.hideAsync().catch(() => {});
   }, []);
 
-  return <Slot />;
+  return (
+    <I18nProvider>
+      <Slot />
+    </I18nProvider>
+  );
 }

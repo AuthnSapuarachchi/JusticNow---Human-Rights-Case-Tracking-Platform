@@ -123,8 +123,8 @@ assert against them. Both come from user research, not taste — do not relax th
 | `IconTile` | Soft rounded icon square for category rows. Decorative, hidden from AT. |
 | `SearchField` | Search input with leading magnifier. |
 | `SectionHeading` | Section title with an optional trailing action. |
-| `LanguageToggle` | EN / සිං / தமிழ் switch. |
-| `ScreenHeader` | Title + language toggle + optional back and notifications. |
+| `LanguageToggle` | EN / සිං / தமிழ் switch. Presentational — takes `language` and `onChange`. |
+| `ScreenHeader` | Title + language toggle + optional back and notifications. Reads the language from `useTranslation()` itself. |
 
 ### Example — a directory card
 
@@ -169,22 +169,26 @@ not a style preference.
    below 14.
 4. **44pt tap targets.** `Button`, `FilterChip`, `SearchField`, `SectionHeading`
    actions and every `ScreenHeader` control set `minHeight: Layout.minTapTarget`.
-5. **Language toggle everywhere.** `ScreenHeader` requires `language` and
-   `onLanguageChange` — a screen cannot render a header without it.
+5. **Language toggle everywhere.** `ScreenHeader` builds the toggle in and
+   sources it from the i18n provider — a screen cannot render a header without it.
 
 ---
 
-## Known gap: i18n does not exist yet
+## Working with i18n
 
-Every string above is shown going through a `t()` call, but **`src/i18n/` has not
-been built** and no ticket in the plan creates it. `LanguageToggle` therefore
-takes `language` and `onChange` as props and owns no state.
+`src/i18n/` is built — see its own README. Two things follow from it:
 
-`AppLanguage` (`'en' | 'si' | 'ta'`) is temporarily declared in
-`components/LanguageToggle.tsx`. When the i18n module lands it should own that
-type and this file should import it instead.
+**`ScreenHeader` wires itself.** It reads the active language from
+`useTranslation()` rather than taking it as a prop, so a screen cannot render a
+header without the language toggle. Pass it an already-translated title:
 
-This blocks JN-29 — screens cannot be built string-free without it. It needs its
-own ticket, sized and scheduled before JN-29 starts. No new dependency is
-required: plain TypeScript dictionaries, a React Context and a `useTranslation()`
-hook are enough for three languages.
+```tsx
+<ScreenHeader title={t('directory.title')} onBack={() => router.back()} />
+```
+
+**`AppLanguage` lives in `@/i18n`, not here.** `LanguageToggle` imports it.
+It stays presentational — it renders the language it is given and reports
+changes upward; `ScreenHeader` is what connects it to the provider.
+
+Every string passed into these components should come from a `t()` call. The
+components cannot enforce that — only review can.

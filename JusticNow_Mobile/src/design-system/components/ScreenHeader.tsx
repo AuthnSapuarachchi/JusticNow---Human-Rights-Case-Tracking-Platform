@@ -1,45 +1,39 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, View } from 'react-native';
 
+import { useTranslation } from '@/i18n';
+
 import { Layout, Spacing } from '../spacing';
 import { useColors } from '../use-colors';
-import { LanguageToggle, type AppLanguage } from './LanguageToggle';
+import { LanguageToggle } from './LanguageToggle';
 import { Text } from './Text';
 
 export type ScreenHeaderProps = {
+  /** Already-translated title, e.g. `t('directory.title')`. */
   title: string;
-  language: AppLanguage;
-  onLanguageChange: (language: AppLanguage) => void;
   /** Shows a back control. Omit on tab-root screens. */
   onBack?: () => void;
-  /** Accessible name for the back control — from an i18n key, e.g. "Go back". */
-  backLabel?: string;
   /** Optional trailing notification control. */
   onNotificationsPress?: () => void;
-  notificationsLabel?: string;
 };
 
 /**
- * The header every screen uses. It exists mainly so the language toggle cannot
- * be forgotten on a screen — our research made it a requirement everywhere.
+ * The header every screen uses.
+ *
+ * It reads the language from `useTranslation()` itself rather than taking it as
+ * a prop, so a screen physically cannot render a header without the toggle —
+ * which our user research made a requirement on every screen.
  */
-export function ScreenHeader({
-  title,
-  language,
-  onLanguageChange,
-  onBack,
-  backLabel = 'Go back',
-  onNotificationsPress,
-  notificationsLabel = 'Notifications',
-}: ScreenHeaderProps) {
+export function ScreenHeader({ title, onBack, onNotificationsPress }: ScreenHeaderProps) {
   const colors = useColors();
+  const { t, language, setLanguage } = useTranslation();
 
   return (
     <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
       <View style={styles.leading}>
         {onBack ? (
           <Pressable
-            accessibilityLabel={backLabel}
+            accessibilityLabel={t('common.back')}
             accessibilityRole="button"
             hitSlop={8}
             onPress={onBack}
@@ -54,10 +48,10 @@ export function ScreenHeader({
       </View>
 
       <View style={styles.trailing}>
-        <LanguageToggle language={language} onChange={onLanguageChange} />
+        <LanguageToggle language={language} onChange={setLanguage} />
         {onNotificationsPress ? (
           <Pressable
-            accessibilityLabel={notificationsLabel}
+            accessibilityLabel={t('common.notifications')}
             accessibilityRole="button"
             hitSlop={8}
             onPress={onNotificationsPress}
