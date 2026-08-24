@@ -19,7 +19,7 @@ export function CaseDetailScreen({ caseId }: CaseDetailScreenProps) {
 
   useEffect(() => { let mounted = true; Promise.all([getCaseDetail(caseId), getCaseStatus(caseId)]).then(([caseData, statusData]) => { if (mounted) { setDetail(caseData); setTimeline(statusData); } }).catch(() => { if (mounted) setError('Unable to load this case.'); }).finally(() => { if (mounted) setLoading(false); }); return () => { mounted = false; }; }, [caseId]);
 
-  const handleTabPress = (tab: string) => { if (tab === NavTab.Home) router.replace('/'); if (tab === NavTab.Cases) router.replace('/cases'); if (tab === NavTab.Messages) router.push('/messages'); };
+  const handleTabPress = (tab: string) => { if (tab === NavTab.Home) router.replace('/'); if (tab === NavTab.Cases) router.replace('/cases'); if (tab === NavTab.Messages) router.push('/messages'); if (tab === NavTab.Support) router.push('/legal-support'); };
 
   if (loading) return <SafeAreaView style={styles.safeArea}><View style={styles.centerState}><ActivityIndicator color="#2875d0" /><Text style={styles.stateText}>Loading case details...</Text></View></SafeAreaView>;
   if (error || !detail) return <SafeAreaView style={styles.safeArea}><View style={styles.centerState}><Text style={styles.errorText}>{error ?? 'Case not found.'}</Text><Pressable onPress={() => router.replace('/cases')}><Text style={styles.retryText}>Back to cases</Text></Pressable></View></SafeAreaView>;

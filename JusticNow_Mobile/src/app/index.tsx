@@ -12,6 +12,7 @@ export default function HomeScreen() {
     if (tab === NavTab.Home) router.replace('/');
     if (tab === NavTab.Cases) router.push('/cases');
     if (tab === NavTab.Messages) router.push('/messages');
+    if (tab === NavTab.Support) router.push('/legal-support');
   };
 
   return (

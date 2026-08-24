@@ -23,7 +23,7 @@ export function CaseListScreen() {
 
   useEffect(() => { loadCases(); }, [loadCases]);
 
-  const handleTabPress = (tab: string) => { if (tab === NavTab.Home) router.replace('/'); if (tab === NavTab.Messages) router.push('/messages'); };
+  const handleTabPress = (tab: string) => { if (tab === NavTab.Home) router.replace('/'); if (tab === NavTab.Messages) router.push('/messages'); if (tab === NavTab.Support) router.push('/legal-support'); };
 
   return <SafeAreaView edges={['top']} style={styles.safeArea}>
     <View style={styles.header}><View><Text style={styles.eyebrow}>JUSTICENOW</Text><Text style={styles.title}>Your cases</Text></View><View style={styles.countBadge}><Text style={styles.countText}>{cases.length}</Text></View></View>
