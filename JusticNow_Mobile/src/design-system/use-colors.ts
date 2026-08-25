@@ -1,14 +1,12 @@
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
 import { Colors, type ColorTokens } from './colors';
 
 /**
- * Resolves the semantic colour set for the active scheme.
+ * Resolves the semantic colour set for the JusticeNow screens.
  *
- * Parallel to the existing `useTheme()` in `hooks/use-theme.ts`, which serves
- * the Expo template screens. New screens use this one.
+ * The approved product design currently ships in light mode. Keep the dark
+ * tokens available for a future user-controlled theme without allowing the
+ * device preference to unexpectedly change the product surface.
  */
 export function useColors(): ColorTokens {
-  const scheme = useColorScheme();
-  return scheme === 'dark' ? Colors.dark : Colors.light;
+  return Colors.light;
 }
