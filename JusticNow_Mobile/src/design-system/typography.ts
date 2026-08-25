@@ -22,6 +22,18 @@ export const FONT_SIZE_FLOOR = 14;
 export const BODY_SIZE_FLOOR = 16;
 
 export const Typography = {
+  /**
+   * Root tab-screen header — "Find Legal Help", "Know Your Rights". Sized to
+   * match the convention M2 already set on CaseListScreen ("Your cases" is
+   * 27/800): every tab root in the app should read at roughly this size.
+   */
+  screenTitle: { fontSize: 26, lineHeight: 32, fontWeight: '800' },
+  /**
+   * Sub-page header — a screen reached via a back button, e.g. Request
+   * Support, a rights category page. Matches CaseDetailScreen's header
+   * ("Case details" is 17/800).
+   */
+  pageTitle: { fontSize: 17, lineHeight: 22, fontWeight: '800' },
   /** Screen titles — "Know Your Rights", "Find Legal Help". */
   display: { fontSize: 28, lineHeight: 34, fontWeight: '800', letterSpacing: -0.3 },
   /** Section titles within a screen. */

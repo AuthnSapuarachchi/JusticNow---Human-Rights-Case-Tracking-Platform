@@ -104,36 +104,45 @@ export function LegalDirectoryScreen() {
           value={filters.query}
         />
 
-        <FilterRow
-          items={CATEGORY_FILTERS}
-          labelFor={(value) =>
-            value === 'all' ? t('directory.filterAll') : t(`category.${value}` as TranslationKey)
-          }
-          onSelect={(category) => setFilters((current) => ({ ...current, category }))}
-          selected={filters.category}
-        />
+        {/* All three filter groups share one scrollable row so the list of
+            results starts sooner - three stacked rows cost too much vertical
+            space before anything useful was on screen. */}
+        <ScrollView
+          contentContainerStyle={styles.filterRow}
+          horizontal
+          showsHorizontalScrollIndicator={false}
+        >
+          {CATEGORY_FILTERS.map((value) => (
+            <FilterChip
+              key={`category-${value}`}
+              label={value === 'all' ? t('directory.filterAll') : t(`category.${value}` as TranslationKey)}
+              onPress={() => setFilters((current) => ({ ...current, category: value }))}
+              selected={filters.category === value}
+            />
+          ))}
 
-        <FilterRow
-          items={COST_FILTERS}
-          labelFor={(value) =>
-            value === 'all'
-              ? t('directory.filterAll')
-              : value === 'free'
-                ? t('directory.free')
-                : t('directory.paid')
-          }
-          onSelect={(cost) => setFilters((current) => ({ ...current, cost }))}
-          selected={filters.cost}
-        />
+          <View style={[styles.filterDivider, { backgroundColor: colors.borderStrong }]} />
 
-        <FilterRow
-          items={LANGUAGE_FILTERS}
-          labelFor={(value) =>
-            value === 'all' ? t('directory.anyLanguage') : t(`lang.${value}` as TranslationKey)
-          }
-          onSelect={(language) => setFilters((current) => ({ ...current, language }))}
-          selected={filters.language}
-        />
+          {COST_FILTERS.map((value) => (
+            <FilterChip
+              key={`cost-${value}`}
+              label={value === 'all' ? t('directory.costAll') : value === 'free' ? t('directory.free') : t('directory.paid')}
+              onPress={() => setFilters((current) => ({ ...current, cost: value }))}
+              selected={filters.cost === value}
+            />
+          ))}
+
+          <View style={[styles.filterDivider, { backgroundColor: colors.borderStrong }]} />
+
+          {LANGUAGE_FILTERS.map((value) => (
+            <FilterChip
+              key={`language-${value}`}
+              label={value === 'all' ? t('directory.anyLanguage') : t(`lang.${value}` as TranslationKey)}
+              onPress={() => setFilters((current) => ({ ...current, language: value }))}
+              selected={filters.language === value}
+            />
+          ))}
+        </ScrollView>
       </View>
 
       {isLoading ? (
@@ -202,36 +211,6 @@ export function LegalDirectoryScreen() {
   );
 }
 
-/** Horizontally scrolling chip row. Generic so all four filters share it. */
-function FilterRow<T extends string>({
-  items,
-  selected,
-  onSelect,
-  labelFor,
-}: {
-  items: readonly T[];
-  selected: T;
-  onSelect: (value: T) => void;
-  labelFor: (value: T) => string;
-}) {
-  return (
-    <ScrollView
-      contentContainerStyle={styles.filterRow}
-      horizontal
-      showsHorizontalScrollIndicator={false}
-    >
-      {items.map((value) => (
-        <FilterChip
-          key={value}
-          label={labelFor(value)}
-          onPress={() => onSelect(value)}
-          selected={selected === value}
-        />
-      ))}
-    </ScrollView>
-  );
-}
-
 function OrganizationCard({
   organization,
   onRequestSupport,
@@ -297,8 +276,14 @@ const styles = StyleSheet.create({
     paddingTop: Spacing.md,
   },
   filterRow: {
+    alignItems: 'center',
     gap: Spacing.sm,
     paddingRight: Layout.screenPadding,
+  },
+  filterDivider: {
+    alignSelf: 'stretch',
+    marginVertical: Spacing.xs,
+    width: 1,
   },
   list: {
     gap: Spacing.md,
