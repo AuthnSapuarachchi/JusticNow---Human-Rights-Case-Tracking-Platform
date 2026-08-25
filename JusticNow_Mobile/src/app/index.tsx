@@ -40,7 +40,7 @@ export default function CitizenLandingPage() {
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
-          {/* 🚀 This links to your multi-step form! */}
+          {/*This links to multi-step form! */}
           <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/report')}>
             <Ionicons name="document-text-outline" size={20} color="#fff" style={styles.btnIcon} />
             <Text style={styles.primaryButtonText}>Start a Report</Text>
