@@ -43,7 +43,7 @@ export function MessageInboxScreen() {
     return Array.from(grouped.values()).sort((first, second) => new Date(second.latestMessage.createdAt).getTime() - new Date(first.latestMessage.createdAt).getTime());
   }, [messages]);
 
-  const handleTabPress = (tab: string) => { if (tab === NavTab.Home) router.replace('/'); if (tab === NavTab.Cases) router.push('/cases'); };
+  const handleTabPress = (tab: string) => { if (tab === NavTab.Home) router.replace('/'); if (tab === NavTab.Cases) router.push('/cases'); if (tab === NavTab.Support) router.push('/legal-support'); };
   const formatTime = (date: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(date));
 
   return <SafeAreaView edges={['top']} style={styles.safeArea}>

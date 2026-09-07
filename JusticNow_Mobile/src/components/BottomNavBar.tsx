@@ -1,6 +1,7 @@
+import React from 'react';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 export enum NavTab {
   Home = 'Home',
@@ -14,6 +15,7 @@ interface BottomNavBarProps {
   onTabPress: (tab: string) => void;
 }
 
+// Extracts the exact valid icon names from Ionicons to prevent TypeScript errors
 type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const tabs: Array<{ label: NavTab; activeIcon: IoniconName; inactiveIcon: IoniconName }> = [
