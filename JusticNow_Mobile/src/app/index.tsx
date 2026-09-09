@@ -1,11 +1,18 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, BackHandler, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar'; // Keeping your teammate's nav bar
+import { useAuth } from '@/context/AuthContext';
 
 export default function CitizenLandingPage() {
   const router = useRouter();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
 
   // Safety feature: Instantly closes the app (works on Android)
   const handleQuickExit = () => {
@@ -25,7 +32,9 @@ export default function CitizenLandingPage() {
       <View style={styles.header}>
         <Ionicons name="hammer-outline" size={24} color="#1D4ED8" />
         <Text style={styles.headerTitle}>JusticeNow</Text>
-        <Ionicons name="notifications-outline" size={24} color="#64748B" />
+        <Pressable accessibilityLabel="Log out" accessibilityRole="button" hitSlop={8} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color="#64748B" />
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

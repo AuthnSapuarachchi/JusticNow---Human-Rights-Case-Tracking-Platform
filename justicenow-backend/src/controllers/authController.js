@@ -2,27 +2,55 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/db');
 
-// --- 1. Register Officer ---
+const createTokens = (user) => ({
+    accessToken: jwt.sign(
+        { id: user.id, role: user.role },
+        process.env.JWT_SECRET,
+        { expiresIn: '15m' }
+    ),
+    refreshToken: jwt.sign(
+        { id: user.id, role: user.role },
+        process.env.JWT_REFRESH_SECRET,
+        { expiresIn: '7d' }
+    )
+});
+
+const allowedRoles = ['CITIZEN', 'OFFICER', 'ADMIN'];
+
+// --- 1. Register user ---
 const registerOfficer = async (req, res) => {
     try {
-        const { email, password, name } = req.body;
+        const { email, password, name, role } = req.body;
+
+        if (!name?.trim() || !email?.trim() || !password || password.length < 8 || !allowedRoles.includes(role)) {
+            return res.status(400).json({ error: 'Name, email, password of at least 8 characters, and a valid role are required.' });
+        }
+
+        const normalizedEmail = email.trim().toLowerCase();
+        const existingUser = await prisma.user.findUnique({ where: { email: normalizedEmail } });
+        if (existingUser) {
+            return res.status(409).json({ error: 'An account with this email already exists.' });
+        }
         
         // Hash password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // Save to DB
-        const newOfficer = await prisma.user.create({
-            data: { email, password: hashedPassword, name, role: 'OFFICER' }
+        const newUser = await prisma.user.create({
+            data: { email: normalizedEmail, password: hashedPassword, name: name.trim(), role }
         });
 
+        const tokens = createTokens(newUser);
+
         res.status(201).json({ 
-            message: 'Officer registered successfully!', 
-            officerId: newOfficer.id 
+            message: 'Account created successfully.',
+            user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role },
+            ...tokens
         });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: 'Error registering officer.' });
+        res.status(500).json({ error: 'Unable to create your account right now.' });
     }
 };
 
@@ -30,7 +58,7 @@ const registerOfficer = async (req, res) => {
 const loginOfficer = async (req, res) => {
     try {
         const { email, password } = req.body;
-        const officer = await prisma.user.findUnique({ where: { email } });
+        const officer = await prisma.user.findUnique({ where: { email: email?.trim().toLowerCase() } });
 
         if (!officer) return res.status(404).json({ error: 'Officer not found.' });
 
@@ -38,23 +66,12 @@ const loginOfficer = async (req, res) => {
         if (!isMatch) return res.status(401).json({ error: 'Invalid credentials.' });
 
         // Access Token: Short lifespan (e.g., 15 minutes) for security
-        const accessToken = jwt.sign(
-            { id: officer.id, role: officer.role }, 
-            process.env.JWT_SECRET, 
-            { expiresIn: '15m' }
-        );
-
-        // Refresh Token: Long lifespan (e.g., 7 days) to keep user logged in
-        const refreshToken = jwt.sign(
-            { id: officer.id, role: officer.role }, 
-            process.env.JWT_REFRESH_SECRET, 
-            { expiresIn: '7d' }
-        );
+        const tokens = createTokens(officer);
 
         res.status(200).json({ 
             message: 'Login successful!', 
-            accessToken,
-            refreshToken 
+            user: { id: officer.id, email: officer.email, name: officer.name, role: officer.role },
+            ...tokens
         });
     } catch (error) {
         console.error(error);

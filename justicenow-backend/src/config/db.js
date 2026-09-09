@@ -13,7 +13,8 @@ const adapter = new PrismaMariaDb({
   password: dbUrl.password,
   database: dbUrl.pathname.substring(1),
   connectionLimit: 10,
-  multipleStatements: true 
+  multipleStatements: true,
+  allowPublicKeyRetrieval: true,
 });
 
 const prisma = new PrismaClient({ adapter });
