@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
+  provider = "mysql"
 }
 
 // --- ENUMS ---
@@ -20,7 +20,16 @@ enum CaseStatus {
   CLOSED
 }
 
+<<<<<<< HEAD
+enum ViolationCategory {
+  WORKPLACE_DISCRIMINATION
+  HUMAN_RIGHTS_VIOLATION
+  DIGITAL_PRIVACY
+  OTHER
+}
+=======
 // --- 1. ADMINISTRATIVE TABLES ---
+>>>>>>> testBranch
 
 // --- 1. ADMINISTRATIVE TABLES ---
 model User {
@@ -53,6 +62,27 @@ model LegalOrganization {
   @@map("legal_organizations")
 }
 
+<<<<<<< HEAD
+// --- 2. CITIZEN & REPORTING TABLES ---
+model Case {
+  id             Int               @id @default(autoincrement())
+  description    String            @db.Text
+  status         CaseStatus        @default(SUBMITTED)
+  
+  // New UI Fields
+  isAnonymous    Boolean           @default(true)
+  category       ViolationCategory @default(OTHER)
+  incidentDate   DateTime?         
+  location       String?           
+  actionRequest  String?           // Powers your frontend dashboard banner
+  
+  trackingCode   TrackingCode?
+  evidence       Evidence[]
+  messages       Message[]
+  
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+=======
 
 // --- 2. CITIZEN & REPORTING TABLES ---
 
@@ -67,6 +97,7 @@ model Case {
   
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
+>>>>>>> testBranch
 
   @@map("cases")
 }
