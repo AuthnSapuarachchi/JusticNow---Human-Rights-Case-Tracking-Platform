@@ -81,8 +81,7 @@ model User {
 
   organizationId Int?
 
-  organization   LegalOrganization?
-    @relation(fields:[organizationId], references:[id])
+  organization LegalOrganization? @relation(fields: [organizationId], references: [id])
 
 
 
@@ -186,11 +185,7 @@ model Case {
   officerId      Int?
 
 
-  officer        User?
-    @relation(
-      fields:[officerId],
-      references:[id]
-    )
+  officer User? @relation(fields: [officerId], references: [id])
 
 
 
@@ -250,12 +245,7 @@ model TrackingCode {
   caseId Int @unique
 
 
-  case   Case
-    @relation(
-      fields:[caseId],
-      references:[id],
-      onDelete:Cascade
-    )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
 
 
@@ -290,13 +280,7 @@ model Evidence {
   caseId    Int
 
 
-  case      Case
-    @relation(
-      fields:[caseId],
-      references:[id],
-      onDelete:Cascade
-    )
-
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
 
   createdAt DateTime @default(now())
@@ -325,21 +309,12 @@ model Message {
 
   caseId     Int
 
-  case       Case
-    @relation(
-      fields:[caseId],
-      references:[id],
-      onDelete:Cascade
-    )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
 
   officerId Int?
 
-  officer User?
-    @relation(
-      fields:[officerId],
-      references:[id]
-    )
+  officer User? @relation(fields: [officerId], references: [id])
 
 
   createdAt DateTime @default(now())
@@ -365,12 +340,7 @@ model CaseHistory {
   caseId Int
 
 
-  case Case
-    @relation(
-      fields:[caseId],
-      references:[id],
-      onDelete:Cascade
-    )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
 
 
@@ -416,23 +386,14 @@ model CaseNote {
   caseId Int
 
 
-  case Case
-    @relation(
-      fields:[caseId],
-      references:[id],
-      onDelete:Cascade
-    )
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
 
 
 
   officerId Int
 
 
-  officer User
-    @relation(
-      fields:[officerId],
-      references:[id]
-    )
+  officer User @relation(fields: [officerId], references: [id])
 
 
 
