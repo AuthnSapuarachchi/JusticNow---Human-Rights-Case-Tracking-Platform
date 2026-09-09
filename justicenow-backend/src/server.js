@@ -9,6 +9,13 @@ const authRoutes = require('./routes/authRoutes');
 // Load environment variables
 dotenv.config();
 
+const requiredEnvironmentVariables = ['DATABASE_URL', 'JWT_SECRET', 'JWT_REFRESH_SECRET'];
+const missingEnvironmentVariables = requiredEnvironmentVariables.filter((name) => !process.env[name]);
+
+if (missingEnvironmentVariables.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingEnvironmentVariables.join(', ')}`);
+}
+
 const app = express();
 
 // Middlewares
