@@ -1,9 +1,9 @@
-const prisma = require("../config/db");
+const prisma = require('../config/db');
 
 
-// ===============================
-// GET OFFICER DASHBOARD SUMMARY
-// ===============================
+// ==========================================
+// 1. GET OFFICER DASHBOARD SUMMARY
+// ==========================================
 
 const getOfficerDashboard = async (req, res) => {
 
@@ -12,9 +12,9 @@ const getOfficerDashboard = async (req, res) => {
         const officerId = req.user.id;
 
 
-        const totalAssignedCases = await prisma.case.count({
+        const totalCases = await prisma.case.count({
             where:{
-                officerId: officerId
+                officerId
             }
         });
 
@@ -35,13 +35,12 @@ const getOfficerDashboard = async (req, res) => {
         });
 
 
-        const investigatingCases = await prisma.case.count({
+        const investigating = await prisma.case.count({
             where:{
                 officerId,
                 status:"INVESTIGATION_IN_PROGRESS"
             }
         });
-
 
 
         const recentlyUpdated = await prisma.case.findMany({
@@ -56,26 +55,23 @@ const getOfficerDashboard = async (req, res) => {
 
             take:5,
 
-            select:{
-                id:true,
-                status:true,
-                category:true,
-                updatedAt:true
+            include:{
+                evidence:true
             }
 
         });
 
 
 
-        res.status(200).json({
+        res.json({
 
-            totalAssignedCases,
+            totalCases,
 
             newCases,
 
             waitingForUser,
 
-            investigatingCases,
+            investigating,
 
             recentlyUpdated
 
@@ -84,10 +80,10 @@ const getOfficerDashboard = async (req, res) => {
 
     } catch(error){
 
-        console.error(error);
+        console.log(error);
 
         res.status(500).json({
-            error:"Failed to load officer dashboard"
+            error:"Failed to load dashboard"
         });
 
     }
@@ -97,16 +93,13 @@ const getOfficerDashboard = async (req, res) => {
 
 
 
+// ==========================================
+// 2. GET ASSIGNED CASES
+// ==========================================
 
-// ===============================
-// GET ALL ASSIGNED CASES
-// ===============================
-
-const getOfficerCases = async(req,res)=>{
-
+const getAssignedCases = async(req,res)=>{
 
     try{
-
 
         const officerId = req.user.id;
 
@@ -119,8 +112,11 @@ const getOfficerCases = async(req,res)=>{
 
 
             include:{
+
                 evidence:true,
-                statusHistory:true
+
+                messages:true
+
             },
 
 
@@ -135,10 +131,9 @@ const getOfficerCases = async(req,res)=>{
         res.json(cases);
 
 
-
     }catch(error){
 
-        console.error(error);
+        console.log(error);
 
         res.status(500).json({
             error:"Failed to fetch cases"
@@ -146,49 +141,49 @@ const getOfficerCases = async(req,res)=>{
 
     }
 
-
 };
 
 
 
 
-
-// ===============================
-// GET SINGLE CASE
-// ===============================
-
+// ==========================================
+// 3. GET SINGLE CASE DETAILS
+// ==========================================
 
 const getCaseDetails = async(req,res)=>{
-
 
     try{
 
 
-        const caseId = Number(req.params.id);
-
+        const {id}=req.params;
 
 
         const caseData = await prisma.case.findUnique({
 
             where:{
-                id:caseId
+                id:Number(id)
             },
 
 
             include:{
 
+
                 evidence:true,
+
 
                 messages:true,
 
+
                 notes:true,
+
 
                 statusHistory:true,
 
+
                 officer:true
 
-            }
 
+            }
 
         });
 
@@ -210,14 +205,421 @@ const getCaseDetails = async(req,res)=>{
 
     }catch(error){
 
-        console.error(error);
+        console.log(error);
+
 
         res.status(500).json({
-            error:"Failed to load case"
+            error:"Failed to fetch case"
         });
 
     }
 
+};
+
+
+
+
+// ==========================================
+// 4. UPDATE CASE STATUS
+// ==========================================
+
+const updateCaseStatus = async(req,res)=>{
+
+
+    try{
+
+
+        const officerId=req.user.id;
+
+
+        const {id}=req.params;
+
+
+        const {
+            status,
+            description
+        }=req.body;
+
+
+
+        const currentCase = await prisma.case.findUnique({
+
+            where:{
+                id:Number(id)
+            }
+
+        });
+
+
+
+        if(!currentCase){
+
+            return res.status(404).json({
+                error:"Case not found"
+            });
+
+        }
+
+
+
+
+        const updatedCase = await prisma.case.update({
+
+            where:{
+                id:Number(id)
+            },
+
+
+            data:{
+
+                status
+
+            }
+
+        });
+
+
+
+        await prisma.caseHistory.create({
+
+            data:{
+
+
+                caseId:Number(id),
+
+                previousStatus:currentCase.status,
+
+                newStatus:status,
+
+                changedBy:officerId,
+
+                description
+
+            }
+
+        });
+
+
+
+        res.json({
+
+            message:"Status updated successfully",
+
+            updatedCase
+
+        });
+
+
+
+    }catch(error){
+
+        console.log(error);
+
+
+        res.status(500).json({
+            error:"Failed to update status"
+        });
+
+    }
+
+
+};
+
+
+
+
+// ==========================================
+// 5. ADD CASE NOTE
+// ==========================================
+
+const addCaseNote = async(req,res)=>{
+
+
+    try{
+
+
+        const officerId=req.user.id;
+
+
+        const {id}=req.params;
+
+
+        const {content}=req.body;
+
+
+
+        const note = await prisma.caseNote.create({
+
+            data:{
+
+
+                caseId:Number(id),
+
+                officerId,
+
+                content
+
+
+            }
+
+        });
+
+
+
+        res.status(201).json(note);
+
+
+
+    }catch(error){
+
+        console.log(error);
+
+
+        res.status(500).json({
+            error:"Failed to add note"
+        });
+
+    }
+
+};
+
+
+
+
+// ==========================================
+// 6. REQUEST INFORMATION FROM CITIZEN
+// ==========================================
+
+const requestInformation = async(req,res)=>{
+
+
+    try{
+
+
+        const {id}=req.params;
+
+
+        const {message}=req.body;
+
+
+        const newMessage = await prisma.message.create({
+
+            data:{
+
+
+                caseId:Number(id),
+
+                content:message,
+
+
+                isFromUser:false,
+
+
+                officerId:req.user.id
+
+
+            }
+
+        });
+
+
+
+        await prisma.case.update({
+
+            where:{
+                id:Number(id)
+            },
+
+
+            data:{
+
+                status:"ADDITIONAL_INFORMATION_REQUIRED"
+
+            }
+
+        });
+
+
+
+        res.json({
+
+            message:"Information request sent",
+
+            data:newMessage
+
+        });
+
+
+
+    }catch(error){
+
+        console.log(error);
+
+
+        res.status(500).json({
+            error:"Failed requesting information"
+        });
+
+    }
+
+
+};
+
+
+
+
+// ==========================================
+// 7. REFER CASE
+// ==========================================
+
+const referCase = async(req,res)=>{
+
+
+    try{
+
+
+        const {id}=req.params;
+
+
+        const {description}=req.body;
+
+
+
+        await prisma.case.update({
+
+            where:{
+                id:Number(id)
+            },
+
+
+            data:{
+
+                status:"REFERRED_FOR_LEGAL_SUPPORT"
+
+            }
+
+        });
+
+
+
+        await prisma.caseHistory.create({
+
+            data:{
+
+
+                caseId:Number(id),
+
+
+                newStatus:"REFERRED_FOR_LEGAL_SUPPORT",
+
+
+                changedBy:req.user.id,
+
+
+                description
+
+
+            }
+
+        });
+
+
+
+        res.json({
+
+            message:"Case referred successfully"
+
+        });
+
+
+
+    }catch(error){
+
+        console.log(error);
+
+
+        res.status(500).json({
+            error:"Failed to refer case"
+        });
+
+    }
+
+};
+
+
+
+
+// ==========================================
+// 8. CLOSE CASE
+// ==========================================
+
+const closeCase = async(req,res)=>{
+
+
+    try{
+
+
+        const {id}=req.params;
+
+
+        await prisma.case.update({
+
+            where:{
+                id:Number(id)
+            },
+
+
+            data:{
+
+                status:"CLOSED"
+
+            }
+
+        });
+
+
+
+        await prisma.caseHistory.create({
+
+            data:{
+
+
+                caseId:Number(id),
+
+
+                newStatus:"CLOSED",
+
+
+                changedBy:req.user.id,
+
+
+                description:"Case closed by officer"
+
+
+            }
+
+        });
+
+
+
+        res.json({
+
+            message:"Case closed successfully"
+
+        });
+
+
+
+    }catch(error){
+
+        console.log(error);
+
+
+        res.status(500).json({
+            error:"Failed to close case"
+        });
+
+    }
 
 };
 
@@ -229,8 +631,18 @@ module.exports = {
 
     getOfficerDashboard,
 
-    getOfficerCases,
+    getAssignedCases,
 
-    getCaseDetails
+    getCaseDetails,
+
+    updateCaseStatus,
+
+    addCaseNote,
+
+    requestInformation,
+
+    referCase,
+
+    closeCase
 
 };
