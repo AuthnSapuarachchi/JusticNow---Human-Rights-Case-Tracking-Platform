@@ -33,6 +33,9 @@ export const en = {
   'directory.searchPlaceholder': 'Search organizations or locations',
   'directory.searchLabel': 'Search legal organizations by name or location',
   'directory.filterAll': 'All services',
+  /** The cost row's "all" chip — deliberately just "All", not "All services",
+   *  so it doesn't repeat the category row's label above it. */
+  'directory.costAll': 'All',
   'directory.filterFree': 'Free services',
   'directory.filterLegalAid': 'Legal aid',
   'directory.filterHumanRights': 'Human rights',

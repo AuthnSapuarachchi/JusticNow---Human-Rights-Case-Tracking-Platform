@@ -42,7 +42,7 @@ export function ScreenHeader({ title, onBack, onNotificationsPress }: ScreenHead
             <Ionicons color={colors.textPrimary} name="arrow-back" size={22} />
           </Pressable>
         ) : null}
-        <Text numberOfLines={1} style={styles.title} variant="heading">
+        <Text numberOfLines={1} style={styles.title} variant={onBack ? 'pageTitle' : 'screenTitle'}>
           {title}
         </Text>
       </View>

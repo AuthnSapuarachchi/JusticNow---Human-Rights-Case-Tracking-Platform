@@ -25,6 +25,8 @@ export function Text({ variant = 'body', color = 'textPrimary', style, ...rest }
 }
 
 const styles = StyleSheet.create({
+  screenTitle: Typography.screenTitle,
+  pageTitle: Typography.pageTitle,
   display: Typography.display,
   title: Typography.title,
   heading: Typography.heading,
