@@ -1,0 +1,1 @@
+-- Superseded by 20260911000000_add_chat_attachments, which now targets the live schema.

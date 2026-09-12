@@ -5,6 +5,7 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon",
+    "seed:chat": "node scripts/seed-chat-case.js",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -22,7 +23,9 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "morgan": "^1.11.0",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "multer": "^2.0.2",
+    "socket.io": "^4.8.1"
   },
   "devDependencies": {
     "eslint": "^10.8.1",
