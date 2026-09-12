@@ -27,10 +27,6 @@ enum ViolationCategory {
   DIGITAL_PRIVACY
   OTHER
 }
-<<<<<<< HEAD
-
-=======
->>>>>>> a83058cc837fc6bbda96dc179369c16831550d6c
 // --- 1. ADMINISTRATIVE TABLES ---
 model User {
   id             Int                @id @default(autoincrement())
@@ -82,11 +78,7 @@ model Case {
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
-<<<<<<< HEAD
   @@map("cases")
-=======
-  @@map("case")
->>>>>>> a83058cc837fc6bbda96dc179369c16831550d6c
 }
 
 model TrackingCode {
