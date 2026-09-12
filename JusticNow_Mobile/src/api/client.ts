@@ -1,8 +1,7 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? (Platform.OS === 'android' ? 'http://10.0.2.2:5000' : 'http://localhost:5000');
-
+const API_URL = 'http://192.168.134.76:5000';
 export type ApiError = { error?: string };
 
 type StoredSession = { accessToken?: string; refreshToken?: string };
@@ -49,6 +48,36 @@ export async function request<T>(path: string, options: RequestInit = {}, hasRet
 	}
 
 	return body;
+}
+
+export async function requestMultipart<T>(path: string, body: FormData): Promise<T> {
+	const session = await readSession();
+	const controller = new AbortController();
+	const timeout = setTimeout(() => controller.abort(), 15000);
+
+	try {
+		console.info(`[API] multipart POST ${API_URL}${path}`);
+		const response = await fetch(`${API_URL}${path}`, {
+			method: 'POST',
+			body,
+			signal: controller.signal,
+			headers: {
+				Accept: 'application/json',
+				...(session?.accessToken ? { Authorization: `Bearer ${session.accessToken}` } : {}),
+			},
+		});
+		const result = (await response.json().catch(() => ({}))) as T & ApiError;
+		console.info(`[API] multipart response ${response.status}`);
+		if (!response.ok) throw new Error(result.error ?? `Request failed with status ${response.status}.`);
+		return result;
+	} catch (error) {
+		if (error instanceof Error && error.name === 'AbortError') {
+			throw new Error('The server did not respond within 15 seconds. Check that the backend is running and the API address is reachable.');
+		}
+		throw error;
+	} finally {
+		clearTimeout(timeout);
+	}
 }
 
 export { API_URL };

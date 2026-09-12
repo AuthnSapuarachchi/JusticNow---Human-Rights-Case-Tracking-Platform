@@ -37,7 +37,7 @@ export default function StepOneIncident({ data, updateData, onNext }: StepOnePro
       <TextInput
         style={styles.input}
         placeholder="mm/dd/yyyy"
-        value={data.incidentDate}
+        value={typeof data.incidentDate === 'string' ? data.incidentDate : ''}
         onChangeText={(text) => updateData({ ...data, incidentDate: text })}
       />
 
@@ -46,9 +46,21 @@ export default function StepOneIncident({ data, updateData, onNext }: StepOnePro
       <TextInput
         style={styles.input}
         placeholder="e.g. Main Office, Floor 3"
-        value={data.location}
+        value={typeof data.location === 'string' ? data.location : ''}
         onChangeText={(text) => updateData({ ...data, location: text })}
       />
+
+      <Text style={styles.label}>Private Tracking PIN</Text>
+      <TextInput
+        style={styles.input}
+        keyboardType="number-pad"
+        maxLength={12}
+        placeholder="4 to 12 digits"
+        secureTextEntry
+        value={typeof data.pin === 'string' ? data.pin : ''}
+        onChangeText={(text) => updateData({ ...data, pin: text.replace(/\D/g, '') })}
+      />
+      <Text style={styles.helperText}>You will need this PIN with your tracking code to access this case later.</Text>
 
       {/* Description Input */}
       <Text style={styles.label}>Description (Required)</Text>
@@ -57,7 +69,7 @@ export default function StepOneIncident({ data, updateData, onNext }: StepOnePro
         placeholder="Describe what happened in as much detail as you feel comfortable sharing..."
         multiline
         numberOfLines={6}
-        value={data.description}
+        value={typeof data.description === 'string' ? data.description : ''}
         onChangeText={(text) => updateData({ ...data, description: text })}
       />
 
@@ -85,6 +97,7 @@ const styles = StyleSheet.create({
   radioSubText: { fontSize: 12, color: '#64748B', marginTop: 4 },
 
   label: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 6 },
+  helperText: { color: '#64748B', fontSize: 12, marginBottom: 16, marginTop: -10 },
   input: { borderWidth: 1, borderColor: '#CBD5E1', borderRadius: 8, padding: 12, marginBottom: 16, fontSize: 16 },
   textArea: { height: 120, textAlignVertical: 'top' },
 
