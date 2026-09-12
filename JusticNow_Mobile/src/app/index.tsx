@@ -1,15 +1,29 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, BackHandler } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, BackHandler, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar'; // Keeping your teammate's nav bar
+import { useAuth } from '@/context/AuthContext';
 
 export default function CitizenLandingPage() {
   const router = useRouter();
+  const { logout } = useAuth();
+
+  const handleLogout = async () => {
+    await logout();
+    router.replace('/login');
+  };
 
   // Safety feature: Instantly closes the app (works on Android)
   const handleQuickExit = () => {
     BackHandler.exitApp();
+  };
+
+  const handleTabPress = (tab: string) => {
+    if (tab === NavTab.Home) router.replace('/');
+    if (tab === NavTab.Cases) router.push('/cases');
+    if (tab === NavTab.Messages) router.push('/messages');
+    if (tab === NavTab.Support) router.push('/legal-support');
   };
 
   return (
@@ -18,7 +32,9 @@ export default function CitizenLandingPage() {
       <View style={styles.header}>
         <Ionicons name="hammer-outline" size={24} color="#1D4ED8" />
         <Text style={styles.headerTitle}>JusticeNow</Text>
-        <Ionicons name="notifications-outline" size={24} color="#64748B" />
+        <Pressable accessibilityLabel="Log out" accessibilityRole="button" hitSlop={8} onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color="#64748B" />
+        </Pressable>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -33,7 +49,7 @@ export default function CitizenLandingPage() {
 
         {/* Action Buttons */}
         <View style={styles.actionContainer}>
-          {/* 🚀 This links to your multi-step form! */}
+          {/*This links to multi-step form! */}
           <TouchableOpacity style={styles.primaryButton} onPress={() => router.push('/report')}>
             <Ionicons name="document-text-outline" size={20} color="#fff" style={styles.btnIcon} />
             <Text style={styles.primaryButtonText}>Start a Report</Text>
@@ -81,7 +97,7 @@ export default function CitizenLandingPage() {
       </ScrollView>
 
       {/* Reusing your teammate's Bottom Nav */}
-      <BottomNavBar activeTab={NavTab.Home} onTabPress={(tab) => console.log(tab)} />
+      <BottomNavBar activeTab={NavTab.Home} onTabPress={handleTabPress} />
     </SafeAreaView>
   );
 }
