@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
 interface StepThreeProps {
@@ -11,29 +11,51 @@ interface StepThreeProps {
 
 export default function StepThreeEvidence({ data, updateData, onNext, onPrev }: StepThreeProps) {
   
-  const pickImage = async () => {
-    // Request permission (Crucial for mobile UX and security!)
+const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Permission Needed', 'We need access to your photos to upload evidence.');
       return;
     }
 
-    // Open the native image picker
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
-      quality: 0.8, // Slightly compress to keep payload light
+      quality: 0.8,
     });
 
     if (!result.canceled) {
+      const asset = result.assets[0];
+      let webFile = asset.file;
+      let displayUri = asset.uri;
+
+      // 🚨 WEB FIX: Generate a stable Object URL for the browser to render
+      if (Platform.OS === 'web') {
+        if (!webFile) {
+          try {
+            const response = await fetch(asset.uri);
+            const blob = await response.blob();
+            webFile = new File([blob], asset.fileName || `evidence_${Date.now()}.jpg`, {
+              type: asset.mimeType || blob.type || 'application/octet-stream',
+            });
+          } catch (error) {
+            console.error("Failed to fetch web blob:", error);
+          }
+        }
+
+        // Create a guaranteed valid browser URL using the file data
+        if (webFile) {
+            displayUri = URL.createObjectURL(webFile);
+        }
+      }
+
       const newFile = {
-        uri: result.assets[0].uri,
-        name: result.assets[0].fileName || `evidence_${Date.now()}.jpg`,
-        type: 'image/jpeg'
+        uri: displayUri, // This is now a safe URL for the <Image> component
+        name: asset.fileName || `evidence_${Date.now()}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+        file: webFile
       };
       
-      // Add the new file to the existing array in our master state
       updateData({ ...data, files: [...(data.files || []), newFile] });
     }
   };
