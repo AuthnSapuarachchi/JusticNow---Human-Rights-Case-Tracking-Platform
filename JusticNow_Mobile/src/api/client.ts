@@ -50,7 +50,7 @@ export async function request<T>(path: string, options: RequestInit = {}, hasRet
 	return body;
 }
 
-export async function requestMultipart<T>(path: string, body: FormData): Promise<T> {
+export async function requestMultipart<T>(path: string, body: FormData, hasRetried = false): Promise<T> {
 	const session = await readSession();
 	const controller = new AbortController();
 	const timeout = setTimeout(() => controller.abort(), 15000);
@@ -68,6 +68,19 @@ export async function requestMultipart<T>(path: string, body: FormData): Promise
 		});
 		const result = (await response.json().catch(() => ({}))) as T & ApiError;
 		console.info(`[API] multipart response ${response.status}`);
+
+		if (response.status === 401 && !hasRetried && session?.refreshToken) {
+			console.info('[API] multipart access token rejected; attempting refresh');
+			const refreshedToken = await refreshAccessToken(session);
+			if (refreshedToken) return requestMultipart<T>(path, body, true);
+			await AsyncStorage.removeItem('justicenow.session');
+			throw new Error('Your session has expired. Please sign in again.');
+		}
+		if (response.status === 401) {
+			await AsyncStorage.removeItem('justicenow.session');
+			throw new Error('Your session is invalid. Please sign in again.');
+		}
+
 		if (!response.ok) throw new Error(result.error ?? `Request failed with status ${response.status}.`);
 		return result;
 	} catch (error) {
