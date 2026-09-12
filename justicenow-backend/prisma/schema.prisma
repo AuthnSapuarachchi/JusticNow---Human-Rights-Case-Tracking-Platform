@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 // --- ENUMS ---
@@ -38,14 +38,15 @@ model User {
 
   organizationId Int?
   organization   LegalOrganization? @relation(fields: [organizationId], references: [id])
-  officerCases   Case[]             @relation("CaseOfficer")
+  officerCases   Case[]            @relation("CaseOfficer")
+  reportedCases  Case[]            @relation("CaseReporter")
 
-  officerMessages  Message[] @relation("MessageOfficer")
-  sentMessages     Message[] @relation("MessageSender")
-  receivedMessages Message[] @relation("MessageRecipient")
+  officerMessages Message[]         @relation("MessageOfficer")
+  sentMessages    Message[]         @relation("MessageSender")
+  receivedMessages Message[]        @relation("MessageRecipient")
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
 
   @@map("user")
 }
@@ -68,18 +69,24 @@ model Case {
   id             Int          @id @default(autoincrement())
   description    String       @db.Text
   incidentDate   DateTime?
-  status         CaseStatus   @default(SUBMITTED)
-  trackingCodeId Int          @unique
-  trackingCode   TrackingCode @relation(fields: [trackingCodeId], references: [id], onDelete: Cascade)
+  isAnonymous    Boolean           @default(true)
+  category       ViolationCategory  @default(OTHER)
+  location       String?
+  actionRequest  String?
+  status         CaseStatus        @default(SUBMITTED)
+  trackingCodeId Int               @unique
+  trackingCode   TrackingCode      @relation(fields: [trackingCodeId], references: [id], onDelete: Cascade)
   officerId      Int?
-  officer        User?        @relation("CaseOfficer", fields: [officerId], references: [id])
+  officer        User?             @relation("CaseOfficer", fields: [officerId], references: [id])
+  reporterId     Int?
+  reporter       User?             @relation("CaseReporter", fields: [reporterId], references: [id], onDelete: SetNull)
   evidence       Evidence[]
   messages       Message[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("case")
+  @@map("cases")
 }
 
 model TrackingCode {

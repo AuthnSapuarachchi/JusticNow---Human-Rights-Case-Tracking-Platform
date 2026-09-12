@@ -22,7 +22,7 @@ type Session = {
 };
 
 type Credentials = { email: string; password: string };
-type Registration = Credentials & { name: string; role: UserRole };
+type Registration = Credentials & { name: string };
 
 type AuthContextValue = {
   session: Session | null;
@@ -61,16 +61,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
   };
 
   const register = async (details: Registration) => {
-    const nextSession = await request<Session>('/api/auth/register', {
+    await request('/api/auth/register', {
       method: 'POST',
       body: JSON.stringify({
         name: details.name.trim(),
         email: details.email.trim(),
         password: details.password,
-        role: details.role,
       }),
     });
-    await saveSession(nextSession);
   };
 
   const logout = async () => {

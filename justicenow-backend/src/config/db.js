@@ -1,21 +1,25 @@
 const { PrismaClient } = require('@prisma/client');
-const { PrismaMariaDb } = require('@prisma/adapter-mariadb');
+const { Pool } = require('pg');
+const { PrismaPg } = require('@prisma/adapter-pg');
 require('dotenv').config();
 
-const dbUrl = new URL(process.env.DATABASE_URL);
+const databaseUrl = process.env.DATABASE_URL;
 
-// 🚨 THE REAL V7 FIX: Pass config DIRECTLY to the adapter.
-// Do NOT use mariadb.createPool() - that causes the 10s deadlock!
-const adapter = new PrismaMariaDb({
-  host: dbUrl.hostname,
-  port: Number(dbUrl.port) || 3306,
-  user: dbUrl.username,
-  password: dbUrl.password,
-  database: dbUrl.pathname.substring(1),
-  connectionLimit: 10,
-  multipleStatements: true,
-  allowPublicKeyRetrieval: true,
+if (!databaseUrl) {
+  throw new Error('DATABASE_URL is required to start the backend.');
+}
+
+if (!databaseUrl.startsWith('postgresql://') && !databaseUrl.startsWith('postgres://')) {
+  throw new Error('DATABASE_URL must use the PostgreSQL connection URL scheme.');
+}
+
+// Added the SSL object to allow remote cloud connections to Supabase
+const pool = new Pool({ 
+  connectionString: databaseUrl,
+  ssl: { rejectUnauthorized: false } 
 });
+
+const adapter = new PrismaPg(pool);
 
 const prisma = new PrismaClient({ adapter });
 

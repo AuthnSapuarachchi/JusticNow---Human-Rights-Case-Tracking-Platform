@@ -15,15 +15,18 @@ const createTokens = (user) => ({
     )
 });
 
-const allowedRoles = ['CITIZEN', 'OFFICER', 'ADMIN'];
+const isDatabaseUnavailable = (error) =>
+    error?.code === 'P1001' ||
+    error?.cause?.name === 'DatabaseNotReachable' ||
+    ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error?.cause?.code);
 
 // --- 1. Register user ---
 const registerOfficer = async (req, res) => {
     try {
-        const { email, password, name, role } = req.body;
+        const { email, password, name } = req.body;
 
-        if (!name?.trim() || !email?.trim() || !password || password.length < 8 || !allowedRoles.includes(role)) {
-            return res.status(400).json({ error: 'Name, email, password of at least 8 characters, and a valid role are required.' });
+        if (!name?.trim() || !email?.trim() || !password || password.length < 8) {
+            return res.status(400).json({ error: 'Name, email, and a password of at least 8 characters are required.' });
         }
 
         const normalizedEmail = email.trim().toLowerCase();
@@ -38,7 +41,12 @@ const registerOfficer = async (req, res) => {
 
         // Save to DB
         const newUser = await prisma.user.create({
-            data: { email: normalizedEmail, password: hashedPassword, name: name.trim(), role }
+            data: {
+                email: normalizedEmail,
+                password: hashedPassword,
+                name: name.trim(),
+                role: 'CITIZEN'
+            }
         });
 
         const tokens = createTokens(newUser);
@@ -49,8 +57,12 @@ const registerOfficer = async (req, res) => {
             ...tokens
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Unable to create your account right now.' });
+        console.error('Registration failed:', error);
+        const status = isDatabaseUnavailable(error) ? 503 : 500;
+        const message = isDatabaseUnavailable(error)
+            ? 'The account service is temporarily unavailable. Please try again later.'
+            : 'Unable to create your account right now.';
+        res.status(status).json({ error: message });
     }
 };
 
@@ -74,8 +86,12 @@ const loginOfficer = async (req, res) => {
             ...tokens
         });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: 'Error logging in.' });
+        console.error('Login failed:', error);
+        const status = isDatabaseUnavailable(error) ? 503 : 500;
+        const message = isDatabaseUnavailable(error)
+            ? 'The account service is temporarily unavailable. Please try again later.'
+            : 'Error logging in.';
+        res.status(status).json({ error: message });
     }
 };
 
