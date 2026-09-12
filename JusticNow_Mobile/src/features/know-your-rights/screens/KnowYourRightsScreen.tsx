@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
-import { FlatList, StyleSheet, View } from 'react-native';
+import { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
@@ -15,25 +15,40 @@ import {
   Text,
   useColors,
 } from '@/design-system';
-import { useTranslation, type TranslationKey } from '@/i18n';
+import { useTranslation } from '@/i18n';
 
-import { RIGHTS_CATEGORIES } from '../data/rights';
+import { resolveCategories, type ResolvedCategory } from '../data/rights';
 
 export function KnowYourRightsScreen() {
   const router = useRouter();
   const colors = useColors();
   const { t } = useTranslation();
   const [query, setQuery] = useState('');
+  const [allCategories, setAllCategories] = useState<ResolvedCategory[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    resolveCategories(t).then((resolved) => {
+      if (isMounted) setAllCategories(resolved);
+    }).finally(() => {
+      if (isMounted) setIsLoading(false);
+    });
+    return () => {
+      isMounted = false;
+    };
+    // t's identity only changes when the active language changes (see
+    // I18nProvider), so this re-resolves on language switch, not every render.
+  }, [t]);
 
   const categories = useMemo(() => {
     const needle = query.trim().toLowerCase();
-    if (!needle) return RIGHTS_CATEGORIES;
-    return RIGHTS_CATEGORIES.filter((category) => {
-      const title = t(`rights.category.${category.id}` as TranslationKey).toLowerCase();
-      const description = t(`rights.category.${category.id}.desc` as TranslationKey).toLowerCase();
-      return title.includes(needle) || description.includes(needle);
-    });
-  }, [query, t]);
+    if (!needle) return allCategories;
+    return allCategories.filter(
+      (category) =>
+        category.title.toLowerCase().includes(needle) || category.description.toLowerCase().includes(needle),
+    );
+  }, [allCategories, query]);
 
   const handleTabPress = (tab: string) => {
     if (tab === NavTab.Home) router.replace('/');
@@ -46,45 +61,47 @@ export function KnowYourRightsScreen() {
     <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: colors.canvas }]}>
       <ScreenHeader title={t('rights.title')} />
 
-      <FlatList
-        ListEmptyComponent={
-          <View style={styles.centre}>
-            <Text variant="bodyStrong">{t('directory.empty')}</Text>
-          </View>
-        }
-        ListHeaderComponent={
-          <View style={styles.header}>
-            <Text color="textSecondary" variant="body">
-              {t('rights.intro')}
-            </Text>
-            <SearchField
-              accessibilityLabel={t('rights.searchLabel')}
-              onChangeText={setQuery}
-              placeholder={t('rights.searchPlaceholder')}
-              value={query}
-            />
-            <SectionHeading title={t('rights.categories')} />
-          </View>
-        }
-        contentContainerStyle={styles.list}
-        data={categories}
-        keyExtractor={(category) => category.id}
-        renderItem={({ item }) => (
-          <Card
-            accessibilityLabel={t(`rights.category.${item.id}` as TranslationKey)}
-            onPress={() => router.push(`/rights/${item.id}`)}
-            style={styles.tile}
-          >
-            <IconTile name={item.icon} />
-            <View style={styles.tileCopy}>
-              <Text variant="heading">{t(`rights.category.${item.id}` as TranslationKey)}</Text>
-              <Text color="textSecondary" variant="body">
-                {t(`rights.category.${item.id}.desc` as TranslationKey)}
-              </Text>
+      {isLoading ? (
+        <View style={styles.centre}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      ) : (
+        <FlatList
+          ListEmptyComponent={
+            <View style={styles.centre}>
+              <Text variant="bodyStrong">{t('directory.empty')}</Text>
             </View>
-          </Card>
-        )}
-      />
+          }
+          ListHeaderComponent={
+            <View style={styles.header}>
+              <Text color="textSecondary" variant="body">
+                {t('rights.intro')}
+              </Text>
+              <SearchField
+                accessibilityLabel={t('rights.searchLabel')}
+                onChangeText={setQuery}
+                placeholder={t('rights.searchPlaceholder')}
+                value={query}
+              />
+              <SectionHeading title={t('rights.categories')} />
+            </View>
+          }
+          contentContainerStyle={styles.list}
+          data={categories}
+          keyExtractor={(category) => category.id}
+          renderItem={({ item }) => (
+            <Card accessibilityLabel={item.title} onPress={() => router.push(`/rights/${item.id}`)} style={styles.tile}>
+              <IconTile name={item.icon} />
+              <View style={styles.tileCopy}>
+                <Text variant="heading">{item.title}</Text>
+                <Text color="textSecondary" variant="body">
+                  {item.description}
+                </Text>
+              </View>
+            </Card>
+          )}
+        />
+      )}
 
       <BottomNavBar activeTab={NavTab.Support} onTabPress={handleTabPress} />
     </SafeAreaView>

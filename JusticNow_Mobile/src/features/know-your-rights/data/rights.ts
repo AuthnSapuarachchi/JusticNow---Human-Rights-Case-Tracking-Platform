@@ -13,6 +13,9 @@
  * Both are replaced here with the Sri Lankan position. See README notes.
  */
 
+import { API_URL } from '@/api/client';
+import type { TranslationKey } from '@/i18n';
+
 import type { RightsCategory, RightsCategoryId, RightsDetail } from '../types';
 
 export const RIGHTS_CATEGORIES: RightsCategory[] = [
@@ -157,4 +160,121 @@ export function getRightsCategories(): RightsCategory[] {
 
 export function getRightsDetail(id: string): RightsDetail | undefined {
   return RIGHTS_DETAILS[id as RightsCategoryId];
+}
+
+/**
+ * Live-vs-bundled resolution (EP-07 admin content).
+ *
+ * The backend now serves this content from `rightscategory` /
+ * `rightsprotection` / `rightsfaq` (GET /api/rights, /api/rights/:categoryId
+ * - both public, no auth). Content there can be edited by an admin without a
+ * redeploy.
+ *
+ * These functions try the API first and fall back to the bundled data above
+ * (routed through i18n) on any failure - offline, backend down, or a category
+ * the API hasn't been seeded with yet. That keeps this screen usable for
+ * someone checking their rights on bad connectivity, which matters more here
+ * than almost anywhere else in the app.
+ *
+ * Both paths resolve into the same plain-string shape so screens render one
+ * path, not two.
+ */
+
+export type ResolvedCategory = {
+  id: string;
+  icon: RightsCategory['icon'];
+  title: string;
+  description: string;
+};
+
+export type ResolvedProtection = { id: string; icon: string; title: string; body: string };
+export type ResolvedFaq = { id: string; question: string; answer: string };
+
+export type ResolvedRightsDetail = {
+  id: string;
+  title: string;
+  intro: string;
+  sources: string[];
+  protections: ResolvedProtection[];
+  faqs: ResolvedFaq[];
+};
+
+type RemoteCategory = { categoryId: string; icon: string; title: string; description: string };
+type RemoteRightsDetail = RemoteCategory & {
+  intro: string;
+  sources: string;
+  protections: { protectionId: string; icon: string; title: string; body: string }[];
+  faqs: { faqId: string; question: string; answer: string }[];
+};
+
+async function fetchJson<T>(path: string): Promise<T | null> {
+  try {
+    const response = await fetch(`${API_URL}${path}`);
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  }
+}
+
+/** Bundled category as a t()-resolved ResolvedCategory - the offline fallback. */
+function toBundledCategory(category: RightsCategory, t: (key: TranslationKey) => string): ResolvedCategory {
+  return {
+    id: category.id,
+    icon: category.icon,
+    title: t(`rights.category.${category.id}` as TranslationKey),
+    description: t(`rights.category.${category.id}.desc` as TranslationKey),
+  };
+}
+
+export async function resolveCategories(t: (key: TranslationKey) => string): Promise<ResolvedCategory[]> {
+  const remote = await fetchJson<RemoteCategory[]>('/api/rights');
+  if (remote && remote.length > 0) {
+    return remote.map((category) => ({
+      id: category.categoryId,
+      icon: category.icon as RightsCategory['icon'],
+      title: category.title,
+      description: category.description,
+    }));
+  }
+  return RIGHTS_CATEGORIES.map((category) => toBundledCategory(category, t));
+}
+
+export async function resolveRightsDetail(
+  categoryId: string,
+  t: (key: TranslationKey) => string,
+): Promise<ResolvedRightsDetail | undefined> {
+  const remote = await fetchJson<RemoteRightsDetail>(`/api/rights/${categoryId}`);
+  if (remote) {
+    return {
+      id: remote.categoryId,
+      title: remote.title,
+      intro: remote.intro,
+      sources: remote.sources.split('\n').filter(Boolean),
+      protections: remote.protections.map((p) => ({ id: p.protectionId, icon: p.icon, title: p.title, body: p.body })),
+      faqs: remote.faqs.map((f) => ({ id: f.faqId, question: f.question, answer: f.answer })),
+    };
+  }
+
+  const bundled = getRightsDetail(categoryId);
+  if (!bundled) return undefined;
+  const titleKey = `rights.category.${bundled.id}` as TranslationKey;
+  const introKey = `rights.detail.${bundled.id}.intro` as TranslationKey;
+  return {
+    id: bundled.id,
+    title: t(titleKey),
+    intro: t(introKey),
+    sources: bundled.sources,
+    protections: bundled.protections.map((p) => ({
+      id: p.id,
+      icon: p.icon,
+      title: t(`rights.detail.${bundled.id}.protection.${p.id}.title` as TranslationKey),
+      body: t(`rights.detail.${bundled.id}.protection.${p.id}.body` as TranslationKey),
+    })),
+    faqs: bundled.faqs.map((f) => ({
+      id: f.id,
+      question: t(`rights.detail.${bundled.id}.faq.${f.id}.q` as TranslationKey),
+      answer: t(`rights.detail.${bundled.id}.faq.${f.id}.a` as TranslationKey),
+    })),
+  };
 }
