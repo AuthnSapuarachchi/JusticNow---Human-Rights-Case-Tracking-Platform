@@ -27,103 +27,155 @@ enum ViolationCategory {
   DIGITAL_PRIVACY
   OTHER
 }
+
 // --- 1. ADMINISTRATIVE TABLES ---
 model User {
-  id             Int                @id @default(autoincrement())
-  email          String             @unique
-  password       String
-  name           String?
-  role           Role               @default(OFFICER)
-  
+  id       Int     @id @default(autoincrement())
+  email    String  @unique
+  password String
+  name     String?
+  role     Role    @default(OFFICER)
+
   organizationId Int?
   organization   LegalOrganization? @relation(fields: [organizationId], references: [id])
-  officerCases   Case[]            @relation("CaseOfficer")
-  
-  officerMessages Message[]         @relation("MessageOfficer")
-  sentMessages    Message[]         @relation("MessageSender")
-  receivedMessages Message[]        @relation("MessageRecipient")
-  
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  officerCases   Case[]             @relation("CaseOfficer")
+
+  officerMessages  Message[] @relation("MessageOfficer")
+  sentMessages     Message[] @relation("MessageSender")
+  receivedMessages Message[] @relation("MessageRecipient")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("user")
 }
 
 model LegalOrganization {
-  id           Int      @id @default(autoincrement())
+  id           Int     @id @default(autoincrement())
   name         String
   contactEmail String
-  verified     Boolean  @default(false)
-  
-  officers     User[]   
-  
-  createdAt    DateTime @default(now())
+  verified     Boolean @default(false)
+
+  officers User[]
+
+  createdAt DateTime @default(now())
 
   @@map("legalorganization")
 }
 
 // --- 2. CITIZEN & REPORTING TABLES ---
 model Case {
-  id             Int               @id @default(autoincrement())
-  description    String            @db.Text
+  id             Int          @id @default(autoincrement())
+  description    String       @db.Text
   incidentDate   DateTime?
-  status         CaseStatus        @default(SUBMITTED)
-  trackingCodeId Int               @unique
-  trackingCode   TrackingCode      @relation(fields: [trackingCodeId], references: [id], onDelete: Cascade)
+  status         CaseStatus   @default(SUBMITTED)
+  trackingCodeId Int          @unique
+  trackingCode   TrackingCode @relation(fields: [trackingCodeId], references: [id], onDelete: Cascade)
   officerId      Int?
-  officer        User?             @relation("CaseOfficer", fields: [officerId], references: [id])
+  officer        User?        @relation("CaseOfficer", fields: [officerId], references: [id])
   evidence       Evidence[]
   messages       Message[]
-  
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@map("case")
 }
 
 model TrackingCode {
-  id     Int    @id @default(autoincrement())
-  code   String @unique
-  pin    String
-  
+  id   Int    @id @default(autoincrement())
+  code String @unique
+  pin  String
+
   createdAt DateTime @default(now())
-  case   Case?
+  case      Case?
 
   @@map("trackingcode")
 }
 
 model Evidence {
-  id        Int      @id @default(autoincrement())
-  fileUrl   String   
-  fileType  String   
-  
-  caseId    Int
-  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  
+  id       Int    @id @default(autoincrement())
+  fileUrl  String
+  fileType String
+
+  caseId Int
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
   createdAt DateTime @default(now())
 
   @@map("evidence")
 }
 
 model Message {
-  id         Int      @id @default(autoincrement())
-  content    String   @db.Text
-  isFromUser Boolean  @map("isCitizen")
-  
-  caseId     Int
-  case       Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
-  
-  officerId  Int?
-  officer    User?    @relation("MessageOfficer", fields: [officerId], references: [id])
-  senderId   Int?
-  sender     User?    @relation("MessageSender", fields: [senderId], references: [id])
-  recipientId Int?
-  recipient   User?    @relation("MessageRecipient", fields: [recipientId], references: [id])
+  id         Int     @id @default(autoincrement())
+  content    String  @db.Text
+  isFromUser Boolean @map("isCitizen")
+
+  caseId Int
+  case   Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  officerId      Int?
+  officer        User?   @relation("MessageOfficer", fields: [officerId], references: [id])
+  senderId       Int?
+  sender         User?   @relation("MessageSender", fields: [senderId], references: [id])
+  recipientId    Int?
+  recipient      User?   @relation("MessageRecipient", fields: [recipientId], references: [id])
   attachmentUrl  String?
   attachmentName String?
   attachmentType String?
-  
-  createdAt  DateTime @default(now())
+
+  createdAt DateTime @default(now())
 
   @@map("message")
+}
+
+// --- 3. KNOW YOUR RIGHTS CONTENT (EP-07) ---
+// Additive only - does not touch any model above. One row per category per
+// locale so the language toggle (EN/Sinhala/Tamil) still applies once content
+// is translated; today only locale "en" is seeded.
+model RightsCategory {
+  id          Int    @id @default(autoincrement())
+  categoryId  String // 'workplace', 'child', 'women', ... - matches the mobile app's RightsCategoryId
+  locale      String @default("en")
+  icon        String
+  title       String
+  description String @db.Text
+  intro       String @db.Text
+  sources     String @db.Text // citations, one per line
+
+  protections RightsProtection[]
+  faqs        RightsFaq[]
+
+  updatedAt DateTime @updatedAt
+  updatedBy Int? // no relation to User on purpose - avoids touching the User model
+
+  @@unique([categoryId, locale])
+  @@map("rightscategory")
+}
+
+model RightsProtection {
+  id           Int    @id @default(autoincrement())
+  protectionId String // 'wages', 'safety', ... - stable slug, matches mobile icon lookup
+  icon         String
+  title        String
+  body         String @db.Text
+  order        Int    @default(0)
+
+  categoryId Int
+  category   RightsCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("rightsprotection")
+}
+
+model RightsFaq {
+  id       Int    @id @default(autoincrement())
+  faqId    String // 'unsafe', 'contractor', ... - stable slug
+  question String
+  answer   String @db.Text
+  order    Int    @default(0)
+
+  categoryId Int
+  category   RightsCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@map("rightsfaq")
 }

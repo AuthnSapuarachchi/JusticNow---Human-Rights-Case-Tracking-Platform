@@ -3,10 +3,10 @@
  *
  * Ids and icons only — all readable text comes from i18n.
  *
- * Scope note: JN-29 is the scaffold ticket. `workplace` is fully written as the
- * worked example (it is the Figma template screen); the other eight carry their
- * intro and key protections. Filling every category out to the same depth is
- * JN-60 in Sprint 2.
+ * Scope note: JN-29 scaffolded all nine categories with intro + key protections;
+ * `workplace` additionally had FAQs, as the Figma template screen. JN-60 brought
+ * the other eight up to the same depth with real FAQs, sourced to the same
+ * statutes already cited per category below.
  *
  * The Figma export for the workplace page contained US law in two places — the
  * FLSA minimum wage / 40-hour week, and the Title VII protected-class list.
@@ -55,7 +55,7 @@ export const RIGHTS_DETAILS: Record<RightsCategoryId, RightsDetail> = {
       { id: 'education', icon: 'school' },
       { id: 'protection', icon: 'shield-checkmark' },
     ],
-    faqs: [],
+    faqs: [{ id: 'minimumAge' }, { id: 'reportAbuse' }, { id: 'corporalPunishment' }],
     sources: [
       'Employment of Women, Young Persons and Children Act No. 47 of 1956',
       'National Child Protection Authority Act No. 50 of 1998',
@@ -68,7 +68,7 @@ export const RIGHTS_DETAILS: Record<RightsCategoryId, RightsDetail> = {
       { id: 'violence', icon: 'shield-checkmark' },
       { id: 'maternity', icon: 'heart' },
     ],
-    faqs: [],
+    faqs: [{ id: 'protectionOrder' }, { id: 'workplaceHarassment' }, { id: 'maternityDismissal' }],
     sources: [
       'Constitution of Sri Lanka, Article 12(2)',
       'Prevention of Domestic Violence Act No. 34 of 2005',
@@ -82,7 +82,7 @@ export const RIGHTS_DETAILS: Record<RightsCategoryId, RightsDetail> = {
       { id: 'employment', icon: 'briefcase' },
       { id: 'discrimination', icon: 'ban' },
     ],
-    faqs: [],
+    faqs: [{ id: 'accessRefusal' }, { id: 'employmentQuota' }, { id: 'reasonableAccommodation' }],
     sources: [
       'Protection of the Rights of Persons with Disabilities Act No. 28 of 1996',
       'Constitution of Sri Lanka, Article 12(2)',
@@ -95,7 +95,7 @@ export const RIGHTS_DETAILS: Record<RightsCategoryId, RightsDetail> = {
       { id: 'expression', icon: 'chatbubbles' },
       { id: 'information', icon: 'document-text' },
     ],
-    faqs: [],
+    faqs: [{ id: 'dataMisuse' }, { id: 'onlineHarassment' }, { id: 'infoRequest' }],
     sources: [
       'Personal Data Protection Act No. 9 of 2022',
       'Right to Information Act No. 12 of 2016',
@@ -109,7 +109,7 @@ export const RIGHTS_DETAILS: Record<RightsCategoryId, RightsDetail> = {
       { id: 'remedy', icon: 'document-text' },
       { id: 'services', icon: 'business' },
     ],
-    faqs: [],
+    faqs: [{ id: 'timeLimit' }, { id: 'privateEmployer' }, { id: 'evidenceNeeded' }],
     sources: [
       'Constitution of Sri Lanka, Article 12(2)',
       'Human Rights Commission of Sri Lanka Act No. 21 of 1996',
@@ -122,7 +122,7 @@ export const RIGHTS_DETAILS: Record<RightsCategoryId, RightsDetail> = {
       { id: 'bail', icon: 'document-text' },
       { id: 'habeas', icon: 'shield-checkmark' },
     ],
-    faqs: [],
+    faqs: [{ id: 'rightsOnArrest' }, { id: 'bailRefused' }, { id: 'habeasCorpusUse' }],
     sources: [
       'Constitution of Sri Lanka, Articles 13 and 141',
       'Code of Criminal Procedure Act No. 15 of 1979',
@@ -136,7 +136,7 @@ export const RIGHTS_DETAILS: Record<RightsCategoryId, RightsDetail> = {
       { id: 'exclusion', icon: 'ban' },
       { id: 'special', icon: 'accessibility' },
     ],
-    faqs: [],
+    faqs: [{ id: 'schoolFees' }, { id: 'expulsion' }, { id: 'specialNeeds' }],
     sources: ['Education Ordinance No. 31 of 1939', 'Constitution of Sri Lanka, Article 12(2)'],
   },
   healthcare: {
@@ -146,7 +146,7 @@ export const RIGHTS_DETAILS: Record<RightsCategoryId, RightsDetail> = {
       { id: 'emergency', icon: 'pulse' },
       { id: 'privacy', icon: 'lock-closed' },
     ],
-    faqs: [],
+    faqs: [{ id: 'refusedTreatment' }, { id: 'medicalRecordsPrivacy' }, { id: 'complaintProcess' }],
     sources: ['National Health Policy', 'Personal Data Protection Act No. 9 of 2022'],
   },
 };

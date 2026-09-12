@@ -166,6 +166,94 @@ export const en = {
   'rights.detail.workplace.faq.overtime.a':
     'Yes. Overtime for shop and office employees is capped at twelve hours in any one week, and it must be paid at the overtime rate. Being asked to work beyond that limit is a matter you can raise with the Department of Labour.',
 
+  // Child Rights — JN-60
+  'rights.detail.child.faq.minimumAge.q': 'What is the minimum age for a child to work?',
+  'rights.detail.child.faq.minimumAge.a':
+    'Employing a child under 14 is generally prohibited. Young persons between 14 and 18 may not be put to hazardous work or work at night, even where employment is otherwise permitted.',
+  'rights.detail.child.faq.reportAbuse.q': 'How do I report suspected child abuse?',
+  'rights.detail.child.faq.reportAbuse.a':
+    'You can contact the National Child Protection Authority or the police. A report can be made anonymously, and the authority is required to look into it.',
+  'rights.detail.child.faq.corporalPunishment.q': 'Is corporal punishment allowed in schools?',
+  'rights.detail.child.faq.corporalPunishment.a':
+    'No. Corporal punishment is prohibited in government schools. An incident can be raised with the school administration or reported to the National Child Protection Authority.',
+
+  // Women's Rights — JN-60
+  'rights.detail.women.faq.protectionOrder.q': 'How do I get protection from an abusive partner?',
+  'rights.detail.women.faq.protectionOrder.a':
+    'You can apply to a Magistrate Court under the Prevention of Domestic Violence Act. The court can issue an interim protection order quickly while your full application is heard.',
+  'rights.detail.women.faq.workplaceHarassment.q': 'What can I do about harassment at work?',
+  'rights.detail.women.faq.workplaceHarassment.a':
+    'Sexual harassment is a criminal offence under the Penal Code. You can raise it with your employer, report it to the police, or bring a complaint to the Human Rights Commission of Sri Lanka.',
+  'rights.detail.women.faq.maternityDismissal.q': 'Can I be dismissed for being pregnant or on maternity leave?',
+  'rights.detail.women.faq.maternityDismissal.a':
+    'No. The Maternity Benefits Ordinance protects you from dismissal during pregnancy and maternity leave. A dismissal on this ground can be challenged.',
+
+  // Disability Rights — JN-60
+  'rights.detail.disability.faq.accessRefusal.q': 'What can I do if I am refused entry somewhere because of my disability?',
+  'rights.detail.disability.faq.accessRefusal.a':
+    'This may breach the Protection of the Rights of Persons with Disabilities Act. You can complain to the National Secretariat for Persons with Disabilities.',
+  'rights.detail.disability.faq.employmentQuota.q': 'Does Sri Lanka require employers to hire people with disabilities?',
+  'rights.detail.disability.faq.employmentQuota.a':
+    'State institutions are required to reserve a share of employment for persons with disabilities. Private employers are encouraged to do the same under the Act.',
+  'rights.detail.disability.faq.reasonableAccommodation.q': 'Can my employer refuse to make reasonable adjustments?',
+  'rights.detail.disability.faq.reasonableAccommodation.a':
+    'Refusing a reasonable adjustment without good reason can amount to discrimination, which you can raise with the Human Rights Commission of Sri Lanka.',
+
+  // Digital Privacy — JN-60
+  'rights.detail.privacy.faq.dataMisuse.q': 'What can I do if a company misuses my personal data?',
+  'rights.detail.privacy.faq.dataMisuse.a':
+    'Under the Personal Data Protection Act, organisations must have a lawful basis to process your data and keep it secure. Complaints are handled by the Data Protection Authority.',
+  'rights.detail.privacy.faq.onlineHarassment.q': 'What can I do about online harassment or defamation?',
+  'rights.detail.privacy.faq.onlineHarassment.a':
+    'You can report it to the CID Cyber Crime Division. Depending on the nature of the harassment, it may also fall under the Computer Crimes Act.',
+  'rights.detail.privacy.faq.infoRequest.q': 'How do I request information from a government office?',
+  'rights.detail.privacy.faq.infoRequest.a':
+    'File a request under the Right to Information Act. The authority must respond within the statutory time limit, or give reasons for refusing.',
+
+  // Discrimination — JN-60
+  'rights.detail.discrimination.faq.timeLimit.q': 'How long do I have to challenge discrimination by a state authority?',
+  'rights.detail.discrimination.faq.timeLimit.a':
+    'A fundamental rights petition to the Supreme Court must generally be filed within one month of the infringement, so it is important to act quickly.',
+  'rights.detail.discrimination.faq.privateEmployer.q': 'Does the Constitution protect me from discrimination by a private employer?',
+  'rights.detail.discrimination.faq.privateEmployer.a':
+    'Article 12 mainly binds the State. Discrimination by a private employer is better addressed through labour law or a complaint to the Human Rights Commission of Sri Lanka.',
+  'rights.detail.discrimination.faq.evidenceNeeded.q': 'What evidence helps a discrimination complaint?',
+  'rights.detail.discrimination.faq.evidenceNeeded.a':
+    'Keep a record of what happened, when, and any witnesses. Written communications, such as messages or emails, are also useful evidence.',
+
+  // Unlawful Detention — JN-60
+  'rights.detail.detention.faq.rightsOnArrest.q': 'What are my rights immediately after arrest?',
+  'rights.detail.detention.faq.rightsOnArrest.a':
+    'You must be told the reason for your arrest, produced before a magistrate without unreasonable delay, and allowed to inform a relative and speak to a lawyer.',
+  'rights.detail.detention.faq.bailRefused.q': 'What happens if bail is refused?',
+  'rights.detail.detention.faq.bailRefused.a':
+    'Reasons must be given for refusing bail, and the decision can be challenged before a higher court.',
+  'rights.detail.detention.faq.habeasCorpusUse.q': 'When would I use a habeas corpus application?',
+  'rights.detail.detention.faq.habeasCorpusUse.a':
+    'When a person is being held and their whereabouts are unclear, or they have not been produced before a court. The application can require that they be produced.',
+
+  // Access to Education — JN-60
+  'rights.detail.education.faq.schoolFees.q': 'Can a government school demand payment to admit my child?',
+  'rights.detail.education.faq.schoolFees.a':
+    'No. State education is free, and admission cannot be conditioned on payments the school is not legally permitted to charge.',
+  'rights.detail.education.faq.expulsion.q': 'Can my child be expelled without a hearing?',
+  'rights.detail.education.faq.expulsion.a':
+    'No. Due process should be followed before a child is excluded from school. An unfair exclusion can be raised with the zonal education office.',
+  'rights.detail.education.faq.specialNeeds.q': 'What support exists for a child with a disability in mainstream school?',
+  'rights.detail.education.faq.specialNeeds.a':
+    'A child with a disability is entitled to reasonable support rather than being turned away. Provision varies by school, and concerns can be raised with the Ministry of Education.',
+
+  // Access to Healthcare — JN-60
+  'rights.detail.healthcare.faq.refusedTreatment.q': 'Can a government hospital refuse me treatment?',
+  'rights.detail.healthcare.faq.refusedTreatment.a':
+    'No. Care cannot be refused on the ground of ethnicity, religion, or ability to pay, and emergency treatment must be given first regardless of documents or payment.',
+  'rights.detail.healthcare.faq.medicalRecordsPrivacy.q': 'Who can access my medical records?',
+  'rights.detail.healthcare.faq.medicalRecordsPrivacy.a':
+    'Your medical records are personal data. They cannot be shared without your consent, except where the law requires it, such as a court order or public health reporting.',
+  'rights.detail.healthcare.faq.complaintProcess.q': 'How do I complain about poor treatment at a hospital?',
+  'rights.detail.healthcare.faq.complaintProcess.a':
+    'You can raise it with the hospital administration, the Ministry of Health, or the Human Rights Commission of Sri Lanka.',
+
   // Remaining categories — intro and key protections. Full depth lands in JN-60.
   'rights.detail.child.intro':
     'Children are protected from exploitation and harm, and have the right to education and care.',
