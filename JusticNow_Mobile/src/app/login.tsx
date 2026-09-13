@@ -1,5 +1,5 @@
-import { AuthScreen } from '@/components/AuthScreen';
+import { LoginScreen } from '@/components/LoginScreen';
 
 export default function LoginRoute() {
-  return <AuthScreen mode="login" />;
+  return <LoginScreen />;
 }

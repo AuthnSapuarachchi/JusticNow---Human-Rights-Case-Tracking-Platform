@@ -1,5 +1,5 @@
-import { AuthScreen } from '@/components/AuthScreen';
+import { RegisterScreen } from '@/components/RegisterScreen';
 
 export default function RegisterRoute() {
-  return <AuthScreen mode="register" />;
+  return <RegisterScreen />;
 }

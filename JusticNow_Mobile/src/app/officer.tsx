@@ -1,5 +1,5 @@
-import { RoleDashboard } from '@/components/RoleDashboard';
+import { OfficerDashboardScreen } from '@/features/officer/screens/OfficerDashboardScreen';
 
 export default function OfficerRoute() {
-  return <RoleDashboard role="OFFICER" />;
+  return <OfficerDashboardScreen />;
 }
