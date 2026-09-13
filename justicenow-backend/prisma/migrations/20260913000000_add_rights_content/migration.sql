@@ -1,52 +1,59 @@
 -- EP-07 Know Your Rights content tables. Additive only - no existing table
--- is touched. One row per category per locale in `rightscategory`, so the
+-- is touched. One row per category per locale in "rightscategory", so the
 -- language toggle still applies once real translations exist.
+--
+-- Rewritten for PostgreSQL (originally written for MySQL, before the team
+-- switched datasources). Note: this migration alone does not make the full
+-- chain runnable from scratch on a fresh Postgres database - every migration
+-- before 20260912090000 is still MySQL syntax. That is a separate,
+-- pre-existing issue on the shared history, not something this file fixes.
 
-CREATE TABLE `rightscategory` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `categoryId` VARCHAR(191) NOT NULL,
-    `locale` VARCHAR(191) NOT NULL DEFAULT 'en',
-    `icon` VARCHAR(191) NOT NULL,
-    `title` VARCHAR(191) NOT NULL,
-    `description` TEXT NOT NULL,
-    `intro` TEXT NOT NULL,
-    `sources` TEXT NOT NULL,
-    `updatedAt` DATETIME(3) NOT NULL,
-    `updatedBy` INTEGER NULL,
+CREATE TABLE "rightscategory" (
+    "id" SERIAL NOT NULL,
+    "categoryId" TEXT NOT NULL,
+    "locale" TEXT NOT NULL DEFAULT 'en',
+    "icon" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "description" TEXT NOT NULL,
+    "intro" TEXT NOT NULL,
+    "sources" TEXT NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedBy" INTEGER,
 
-    UNIQUE INDEX `rightscategory_categoryId_locale_key`(`categoryId`, `locale`),
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "rightscategory_pkey" PRIMARY KEY ("id")
+);
 
-CREATE TABLE `rightsprotection` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `protectionId` VARCHAR(191) NOT NULL,
-    `icon` VARCHAR(191) NOT NULL,
-    `title` VARCHAR(191) NOT NULL,
-    `body` TEXT NOT NULL,
-    `order` INTEGER NOT NULL DEFAULT 0,
-    `categoryId` INTEGER NOT NULL,
+CREATE TABLE "rightsprotection" (
+    "id" SERIAL NOT NULL,
+    "protectionId" TEXT NOT NULL,
+    "icon" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "categoryId" INTEGER NOT NULL,
 
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "rightsprotection_pkey" PRIMARY KEY ("id")
+);
 
-CREATE TABLE `rightsfaq` (
-    `id` INTEGER NOT NULL AUTO_INCREMENT,
-    `faqId` VARCHAR(191) NOT NULL,
-    `question` VARCHAR(191) NOT NULL,
-    `answer` TEXT NOT NULL,
-    `order` INTEGER NOT NULL DEFAULT 0,
-    `categoryId` INTEGER NOT NULL,
+CREATE TABLE "rightsfaq" (
+    "id" SERIAL NOT NULL,
+    "faqId" TEXT NOT NULL,
+    "question" TEXT NOT NULL,
+    "answer" TEXT NOT NULL,
+    "order" INTEGER NOT NULL DEFAULT 0,
+    "categoryId" INTEGER NOT NULL,
 
-    PRIMARY KEY (`id`)
-) DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+    CONSTRAINT "rightsfaq_pkey" PRIMARY KEY ("id")
+);
 
-ALTER TABLE `rightsprotection`
-  ADD CONSTRAINT `rightsprotection_categoryId_fkey`
-  FOREIGN KEY (`categoryId`) REFERENCES `rightscategory`(`id`)
+CREATE UNIQUE INDEX "rightscategory_categoryId_locale_key" ON "rightscategory"("categoryId", "locale");
+
+ALTER TABLE "rightsprotection"
+  ADD CONSTRAINT "rightsprotection_categoryId_fkey"
+  FOREIGN KEY ("categoryId") REFERENCES "rightscategory"("id")
   ON DELETE CASCADE ON UPDATE CASCADE;
 
-ALTER TABLE `rightsfaq`
-  ADD CONSTRAINT `rightsfaq_categoryId_fkey`
-  FOREIGN KEY (`categoryId`) REFERENCES `rightscategory`(`id`)
+ALTER TABLE "rightsfaq"
+  ADD CONSTRAINT "rightsfaq_categoryId_fkey"
+  FOREIGN KEY ("categoryId") REFERENCES "rightscategory"("id")
   ON DELETE CASCADE ON UPDATE CASCADE;
