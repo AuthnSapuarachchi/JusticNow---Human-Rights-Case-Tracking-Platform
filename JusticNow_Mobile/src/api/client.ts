@@ -1,7 +1,21 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = 'http://192.168.134.76:5000';
+/**
+ * Point this at whichever machine is running the backend.
+ *
+ * A hardcoded LAN IP cannot be right for everyone - it is whoever committed
+ * last, and it breaks for the rest of the team on every network change. So it
+ * now reads EXPO_PUBLIC_API_URL first and only falls back to the literal.
+ *
+ * Create JusticNow_Mobile/.env.local (already gitignored) with your own address:
+ *   EXPO_PUBLIC_API_URL=http://192.168.1.5:5000
+ * Find your IP with `ipconfig` (Windows) or `ifconfig` (macOS/Linux).
+ *
+ * Expo inlines EXPO_PUBLIC_* at build time, so restart the dev server after
+ * changing it.
+ */
+const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.134.76:5000';
 export type ApiError = { error?: string };
 
 type StoredSession = { accessToken?: string; refreshToken?: string };
