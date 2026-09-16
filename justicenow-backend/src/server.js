@@ -7,6 +7,7 @@ const caseRoutes = require('./routes/caseRoutes');
 const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const userRoutes = require('./routes/userRoutes');
+const rightsRoutes = require('./routes/rightsRoutes');
 const officerRoutes = require('./routes/officerRoutes');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
@@ -37,6 +38,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/cases', caseRoutes);
 app.use('/api', chatRoutes(io));
 app.use('/api/users', userRoutes);
+app.use('/api/rights', rightsRoutes);
 app.use('/api/officer', officerRoutes);
 
 io.use((socket, next) => {

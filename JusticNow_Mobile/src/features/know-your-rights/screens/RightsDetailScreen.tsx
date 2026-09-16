@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -15,9 +16,9 @@ import {
   Text,
   useColors,
 } from '@/design-system';
-import { useTranslation, type TranslationKey } from '@/i18n';
+import { useTranslation } from '@/i18n';
 
-import { getRightsDetail } from '../data/rights';
+import { fetchRemoteRightsDetail, getBundledRightsDetail, type ResolvedRightsDetail } from '../data/rights';
 
 export type RightsDetailScreenProps = {
   categoryId: string;
@@ -26,11 +27,41 @@ export type RightsDetailScreenProps = {
 export function RightsDetailScreen({ categoryId }: RightsDetailScreenProps) {
   const router = useRouter();
   const colors = useColors();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
-  const detail = getRightsDetail(categoryId);
+  const [detail, setDetail] = useState<ResolvedRightsDetail | null | undefined>(undefined);
 
-  if (!detail) {
+  useEffect(() => {
+    let isMounted = true;
+    // Bundled copy first, synchronously, so the page is readable immediately.
+    // `undefined` here means this id is not bundled at all - an admin-added
+    // category, say - so the spinner stays until the backend answers.
+    const bundled = getBundledRightsDetail(categoryId, t);
+    setDetail(bundled);
+    fetchRemoteRightsDetail(categoryId, language).then((remote) => {
+      if (!isMounted) return;
+      if (remote) setDetail(remote);
+      else if (!bundled) setDetail(null); // neither source has it
+    });
+    return () => {
+      isMounted = false;
+    };
+    // t's identity only changes when the active language changes (see
+    // I18nProvider), so this re-resolves on language switch too, not every render.
+  }, [categoryId, t, language]);
+
+  if (detail === undefined) {
+    return (
+      <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: colors.canvas }]}>
+        <ScreenHeader onBack={() => router.back()} title={t('rights.title')} />
+        <View style={styles.centre}>
+          <ActivityIndicator color={colors.primary} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (detail === null) {
     return (
       <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: colors.canvas }]}>
         <ScreenHeader onBack={() => router.back()} title={t('rights.title')} />
@@ -41,16 +72,13 @@ export function RightsDetailScreen({ categoryId }: RightsDetailScreenProps) {
     );
   }
 
-  const titleKey = `rights.category.${detail.id}` as TranslationKey;
-  const introKey = `rights.detail.${detail.id}.intro` as TranslationKey;
-
   return (
     <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: colors.canvas }]}>
-      <ScreenHeader onBack={() => router.back()} title={t(titleKey)} />
+      <ScreenHeader onBack={() => router.back()} title={detail.title} />
 
       <ScrollView contentContainerStyle={styles.scroll}>
         <Card style={styles.intro}>
-          <Text variant="body">{t(introKey)}</Text>
+          <Text variant="body">{detail.intro}</Text>
         </Card>
 
         <View style={styles.section}>
@@ -58,15 +86,13 @@ export function RightsDetailScreen({ categoryId }: RightsDetailScreenProps) {
           {detail.protections.map((protection) => (
             <Card key={protection.id} style={styles.protection}>
               <View style={styles.protectionHead}>
-                <IconTile name={protection.icon} size="sm" />
+                <IconTile name={protection.icon as React.ComponentProps<typeof Ionicons>['name']} size="sm" />
                 <Text style={styles.protectionTitle} variant="heading">
-                  {t(
-                    `rights.detail.${detail.id}.protection.${protection.id}.title` as TranslationKey,
-                  )}
+                  {protection.title}
                 </Text>
               </View>
               <Text color="textSecondary" variant="body">
-                {t(`rights.detail.${detail.id}.protection.${protection.id}.body` as TranslationKey)}
+                {protection.body}
               </Text>
             </Card>
           ))}
@@ -77,11 +103,9 @@ export function RightsDetailScreen({ categoryId }: RightsDetailScreenProps) {
             <SectionHeading title={t('rights.faq')} />
             {detail.faqs.map((faq) => (
               <Card key={faq.id} style={styles.faq}>
-                <Text variant="bodyStrong">
-                  {t(`rights.detail.${detail.id}.faq.${faq.id}.q` as TranslationKey)}
-                </Text>
+                <Text variant="bodyStrong">{faq.question}</Text>
                 <Text color="textSecondary" variant="body">
-                  {t(`rights.detail.${detail.id}.faq.${faq.id}.a` as TranslationKey)}
+                  {faq.answer}
                 </Text>
               </Card>
             ))}
