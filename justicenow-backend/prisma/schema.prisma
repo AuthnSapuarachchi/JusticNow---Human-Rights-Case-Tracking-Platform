@@ -19,6 +19,29 @@ enum CaseStatus {
   ACTION_REQUIRED
   RESOLVED
   CLOSED
+  NEW
+  WAITING_FOR_USER
+  INVESTIGATING
+}
+
+enum CasePriority {
+  NORMAL
+  URGENT
+}
+
+enum CaseActionType {
+  ASSIGNED
+  STATUS_CHANGED
+  NOTE_ADDED
+  INFO_REQUESTED
+  REFERRED
+  CLOSED
+  ESCALATED
+}
+
+enum InfoRequestStatus {
+  PENDING
+  RESOLVED
 }
 
 enum ViolationCategory {
@@ -45,6 +68,12 @@ model User {
   sentMessages    Message[]         @relation("MessageSender")
   receivedMessages Message[]        @relation("MessageRecipient")
 
+  statusHistories  CaseStatusHistory[]
+  caseNotes        CaseNote[]
+  caseInfoRequests CaseInfoRequest[]
+  caseReferrals    CaseReferral[]
+  caseActions      CaseAction[]
+
   createdAt      DateTime           @default(now())
   updatedAt      DateTime           @updatedAt
 
@@ -55,11 +84,12 @@ model LegalOrganization {
   id           Int     @id @default(autoincrement())
   name         String
   contactEmail String
-  verified     Boolean @default(false)
+  verified     Boolean  @default(false)
 
-  officers User[]
+  officers     User[]
+  referrals    CaseReferral[]
 
-  createdAt DateTime @default(now())
+  createdAt    DateTime @default(now())
 
   @@map("legalorganization")
 }
@@ -74,6 +104,9 @@ model Case {
   location       String?
   actionRequest  String?
   status         CaseStatus        @default(SUBMITTED)
+  priority       CasePriority      @default(NORMAL)
+  escalated      Boolean           @default(false)
+  escalatedAt    DateTime?
   trackingCodeId Int               @unique
   trackingCode   TrackingCode      @relation(fields: [trackingCodeId], references: [id], onDelete: Cascade)
   officerId      Int?
@@ -82,9 +115,14 @@ model Case {
   reporter       User?             @relation("CaseReporter", fields: [reporterId], references: [id], onDelete: SetNull)
   evidence       Evidence[]
   messages       Message[]
+  statusHistory  CaseStatusHistory[]
+  notes          CaseNote[]
+  infoRequests   CaseInfoRequest[]
+  referrals      CaseReferral[]
+  actions        CaseAction[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@map("cases")
 }
@@ -186,4 +224,73 @@ model RightsFaq {
   category   RightsCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
   @@map("rightsfaq")
+}
+
+// --- 4. OFFICER CASE-MANAGEMENT TABLES ---
+model CaseStatusHistory {
+  id          Int        @id @default(autoincrement())
+  caseId      Int
+  case        Case       @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  fromStatus  CaseStatus
+  toStatus    CaseStatus
+  changedById Int
+  changedBy   User       @relation(fields: [changedById], references: [id])
+  note        String?    @db.Text
+  createdAt   DateTime   @default(now())
+
+  @@map("casestatushistory")
+}
+
+model CaseNote {
+  id        Int      @id @default(autoincrement())
+  caseId    Int
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  authorId  Int
+  author    User     @relation(fields: [authorId], references: [id])
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@map("casenote")
+}
+
+model CaseInfoRequest {
+  id            Int               @id @default(autoincrement())
+  caseId        Int
+  case          Case              @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  requestedById Int
+  requestedBy   User              @relation(fields: [requestedById], references: [id])
+  message       String            @db.Text
+  status        InfoRequestStatus @default(PENDING)
+  createdAt     DateTime          @default(now())
+  resolvedAt    DateTime?
+
+  @@map("caseinforequest")
+}
+
+model CaseReferral {
+  id                       Int                @id @default(autoincrement())
+  caseId                   Int
+  case                     Case               @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  referredById             Int
+  referredBy               User               @relation(fields: [referredById], references: [id])
+  referredToOrganizationId Int?
+  referredToOrganization   LegalOrganization? @relation(fields: [referredToOrganizationId], references: [id], onDelete: SetNull)
+  referredToText           String?
+  reason                   String             @db.Text
+  createdAt                DateTime           @default(now())
+
+  @@map("casereferral")
+}
+
+model CaseAction {
+  id         Int            @id @default(autoincrement())
+  caseId     Int
+  case       Case           @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  actorId    Int
+  actor      User           @relation(fields: [actorId], references: [id])
+  actionType CaseActionType
+  detail     String?        @db.Text
+  createdAt  DateTime       @default(now())
+
+  @@map("caseaction")
 }
