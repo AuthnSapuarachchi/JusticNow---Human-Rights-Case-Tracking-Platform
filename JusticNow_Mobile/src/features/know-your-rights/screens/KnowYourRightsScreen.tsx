@@ -1,6 +1,6 @@
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
+import { FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
@@ -17,29 +17,31 @@ import {
 } from '@/design-system';
 import { useTranslation } from '@/i18n';
 
-import { resolveCategories, type ResolvedCategory } from '../data/rights';
+import { fetchRemoteCategories, getBundledCategories, type ResolvedCategory } from '../data/rights';
 
 export function KnowYourRightsScreen() {
   const router = useRouter();
   const colors = useColors();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
   const [query, setQuery] = useState('');
-  const [allCategories, setAllCategories] = useState<ResolvedCategory[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [allCategories, setAllCategories] = useState<ResolvedCategory[]>(() => getBundledCategories(t));
 
   useEffect(() => {
     let isMounted = true;
-    resolveCategories(t).then((resolved) => {
-      if (isMounted) setAllCategories(resolved);
-    }).finally(() => {
-      if (isMounted) setIsLoading(false);
+    // Bundled content first, synchronously - this screen never shows a spinner
+    // or a blank list, which matters for someone checking their rights on a bad
+    // connection. The admin-editable copy from the backend replaces it if and
+    // when it arrives; if it never does, the bundled text simply stays.
+    setAllCategories(getBundledCategories(t));
+    fetchRemoteCategories(language).then((remote) => {
+      if (isMounted && remote) setAllCategories(remote);
     });
     return () => {
       isMounted = false;
     };
     // t's identity only changes when the active language changes (see
     // I18nProvider), so this re-resolves on language switch, not every render.
-  }, [t]);
+  }, [t, language]);
 
   const categories = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -61,47 +63,42 @@ export function KnowYourRightsScreen() {
     <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: colors.canvas }]}>
       <ScreenHeader title={t('rights.title')} />
 
-      {isLoading ? (
-        <View style={styles.centre}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      ) : (
-        <FlatList
-          ListEmptyComponent={
-            <View style={styles.centre}>
-              <Text variant="bodyStrong">{t('directory.empty')}</Text>
-            </View>
-          }
-          ListHeaderComponent={
-            <View style={styles.header}>
+      <FlatList
+        ListEmptyComponent={
+          <View style={styles.centre}>
+            <Text variant="bodyStrong">{t('directory.empty')}</Text>
+          </View>
+        }
+        ListHeaderComponent={
+          <View style={styles.header}>
+            <Text color="textSecondary" variant="body">
+              {t('rights.intro')}
+            </Text>
+            <SearchField
+              accessibilityLabel={t('rights.searchLabel')}
+              onChangeText={setQuery}
+              placeholder={t('rights.searchPlaceholder')}
+              value={query}
+            />
+            <SectionHeading title={t('rights.categories')} />
+          </View>
+        }
+        contentContainerStyle={styles.list}
+        data={categories}
+        keyExtractor={(category) => category.id}
+        renderItem={({ item }) => (
+          <Card accessibilityLabel={item.title} onPress={() => router.push(`/rights/${item.id}`)} style={styles.tile}>
+            <IconTile name={item.icon} />
+            <View style={styles.tileCopy}>
+              <Text variant="heading">{item.title}</Text>
               <Text color="textSecondary" variant="body">
-                {t('rights.intro')}
+                {item.description}
               </Text>
-              <SearchField
-                accessibilityLabel={t('rights.searchLabel')}
-                onChangeText={setQuery}
-                placeholder={t('rights.searchPlaceholder')}
-                value={query}
-              />
-              <SectionHeading title={t('rights.categories')} />
             </View>
-          }
-          contentContainerStyle={styles.list}
-          data={categories}
-          keyExtractor={(category) => category.id}
-          renderItem={({ item }) => (
-            <Card accessibilityLabel={item.title} onPress={() => router.push(`/rights/${item.id}`)} style={styles.tile}>
-              <IconTile name={item.icon} />
-              <View style={styles.tileCopy}>
-                <Text variant="heading">{item.title}</Text>
-                <Text color="textSecondary" variant="body">
-                  {item.description}
-                </Text>
-              </View>
-            </Card>
-          )}
-        />
-      )}
+          </Card>
+        )}
+      />
+      {/* No loading branch: bundled categories are present from first render. */}
 
       <BottomNavBar activeTab={NavTab.Support} onTabPress={handleTabPress} />
     </SafeAreaView>

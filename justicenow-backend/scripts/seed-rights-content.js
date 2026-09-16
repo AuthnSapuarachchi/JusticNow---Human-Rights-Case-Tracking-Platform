@@ -203,7 +203,8 @@ const FAQS = {
 };
 
 async function main() {
-  for (const { id: categoryId, icon } of CATEGORIES) {
+  // CATEGORIES is in Figma order, so the array index IS the display order.
+  for (const [order, { id: categoryId, icon }] of CATEGORIES.entries()) {
     const category = await prisma.rightsCategory.upsert({
       where: { categoryId_locale: { categoryId, locale: 'en' } },
       update: {
@@ -212,6 +213,7 @@ async function main() {
         description: DESCRIPTIONS[categoryId],
         intro: INTROS[categoryId],
         sources: SOURCES[categoryId].join('\n'),
+        order,
       },
       create: {
         categoryId,
@@ -221,6 +223,7 @@ async function main() {
         description: DESCRIPTIONS[categoryId],
         intro: INTROS[categoryId],
         sources: SOURCES[categoryId].join('\n'),
+        order,
       },
     });
 

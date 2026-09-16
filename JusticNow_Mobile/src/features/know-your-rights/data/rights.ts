@@ -14,7 +14,7 @@
  */
 
 import { API_URL } from '@/api/client';
-import type { TranslationKey } from '@/i18n';
+import type { AppLanguage, TranslationKey } from '@/i18n';
 
 import type { RightsCategory, RightsCategoryId, RightsDetail } from '../types';
 
@@ -170,11 +170,11 @@ export function getRightsDetail(id: string): RightsDetail | undefined {
  * - both public, no auth). Content there can be edited by an admin without a
  * redeploy.
  *
- * These functions try the API first and fall back to the bundled data above
- * (routed through i18n) on any failure - offline, backend down, or a category
- * the API hasn't been seeded with yet. That keeps this screen usable for
- * someone checking their rights on bad connectivity, which matters more here
- * than almost anywhere else in the app.
+ * Bundled content is served first and synchronously; the live copy replaces it
+ * if and when it arrives. Nothing on screen ever waits on the network. That
+ * keeps this screen usable for someone checking their rights on bad
+ * connectivity, which matters more here than almost anywhere else in the app,
+ * and it means a slow backend degrades to "slightly stale" rather than "blank".
  *
  * Both paths resolve into the same plain-string shape so screens render one
  * path, not two.
@@ -207,13 +207,31 @@ type RemoteRightsDetail = RemoteCategory & {
   faqs: { faqId: string; question: string; answer: string }[];
 };
 
+/**
+ * Cold-start latency here is real and was measured, not guessed: the first
+ * request after the backend opens a pooled connection to Supabase takes
+ * 3.8-4.2s, settling to ~0.5s afterwards. A short 2.5s timeout therefore
+ * aborted the very first load every single time, and the screen quietly showed
+ * bundled content forever - the live copy was never seen.
+ *
+ * This is deliberately generous now, because it is no longer what keeps the
+ * screen responsive. Screens render bundled content synchronously and swap in
+ * the live copy when it lands, so nothing is ever blocked on this promise. The
+ * timeout only exists so a hung socket is eventually released.
+ */
+const FETCH_TIMEOUT_MS = 10000;
+
 async function fetchJson<T>(path: string): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    const response = await fetch(`${API_URL}${path}`);
+    const response = await fetch(`${API_URL}${path}`, { signal: controller.signal });
     if (!response.ok) return null;
     return (await response.json()) as T;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
@@ -227,35 +245,58 @@ function toBundledCategory(category: RightsCategory, t: (key: TranslationKey) =>
   };
 }
 
-export async function resolveCategories(t: (key: TranslationKey) => string): Promise<ResolvedCategory[]> {
-  const remote = await fetchJson<RemoteCategory[]>('/api/rights');
-  if (remote && remote.length > 0) {
-    return remote.map((category) => ({
-      id: category.categoryId,
-      icon: category.icon as RightsCategory['icon'],
-      title: category.title,
-      description: category.description,
-    }));
-  }
+/** Bundled categories, synchronously. Always available, never throws. */
+export function getBundledCategories(t: (key: TranslationKey) => string): ResolvedCategory[] {
   return RIGHTS_CATEGORIES.map((category) => toBundledCategory(category, t));
 }
 
-export async function resolveRightsDetail(
+/**
+ * Live, admin-editable categories. Resolves to null on any failure - offline,
+ * backend down, or nothing seeded yet - so callers keep whatever they already
+ * have on screen rather than blanking it.
+ *
+ * The locale must be passed through, not defaulted server-side. Only 'en' is
+ * seeded today, so a Sinhala or Tamil reader gets an empty list back, which
+ * resolves to null here and leaves the bundled i18n copy on screen. Without
+ * this the English database rows would silently override the language toggle.
+ */
+export async function fetchRemoteCategories(locale: AppLanguage): Promise<ResolvedCategory[] | null> {
+  const remote = await fetchJson<RemoteCategory[]>(`/api/rights?locale=${locale}`);
+  if (!remote || remote.length === 0) return null;
+  return remote.map((category) => ({
+    id: category.categoryId,
+    icon: category.icon as RightsCategory['icon'],
+    title: category.title,
+    description: category.description,
+  }));
+}
+
+/** Live, admin-editable detail for one category. Null on any failure. */
+export async function fetchRemoteRightsDetail(
+  categoryId: string,
+  locale: AppLanguage,
+): Promise<ResolvedRightsDetail | null> {
+  const remote = await fetchJson<RemoteRightsDetail>(`/api/rights/${categoryId}?locale=${locale}`);
+  if (!remote) return null;
+  return {
+    id: remote.categoryId,
+    title: remote.title,
+    intro: remote.intro,
+    sources: remote.sources.split('\n').filter(Boolean),
+    protections: remote.protections.map((p) => ({ id: p.protectionId, icon: p.icon, title: p.title, body: p.body })),
+    faqs: remote.faqs.map((f) => ({ id: f.faqId, question: f.question, answer: f.answer })),
+  };
+}
+
+/**
+ * Bundled detail, synchronously. `undefined` means this id is not in the
+ * bundled set at all - which is not the same as "does not exist", since an
+ * admin may have added a category the app does not ship.
+ */
+export function getBundledRightsDetail(
   categoryId: string,
   t: (key: TranslationKey) => string,
-): Promise<ResolvedRightsDetail | undefined> {
-  const remote = await fetchJson<RemoteRightsDetail>(`/api/rights/${categoryId}`);
-  if (remote) {
-    return {
-      id: remote.categoryId,
-      title: remote.title,
-      intro: remote.intro,
-      sources: remote.sources.split('\n').filter(Boolean),
-      protections: remote.protections.map((p) => ({ id: p.protectionId, icon: p.icon, title: p.title, body: p.body })),
-      faqs: remote.faqs.map((f) => ({ id: f.faqId, question: f.question, answer: f.answer })),
-    };
-  }
-
+): ResolvedRightsDetail | undefined {
   const bundled = getRightsDetail(categoryId);
   if (!bundled) return undefined;
   const titleKey = `rights.category.${bundled.id}` as TranslationKey;

@@ -18,7 +18,7 @@ import {
 } from '@/design-system';
 import { useTranslation } from '@/i18n';
 
-import { resolveRightsDetail, type ResolvedRightsDetail } from '../data/rights';
+import { fetchRemoteRightsDetail, getBundledRightsDetail, type ResolvedRightsDetail } from '../data/rights';
 
 export type RightsDetailScreenProps = {
   categoryId: string;
@@ -27,22 +27,28 @@ export type RightsDetailScreenProps = {
 export function RightsDetailScreen({ categoryId }: RightsDetailScreenProps) {
   const router = useRouter();
   const colors = useColors();
-  const { t } = useTranslation();
+  const { t, language } = useTranslation();
 
   const [detail, setDetail] = useState<ResolvedRightsDetail | null | undefined>(undefined);
 
   useEffect(() => {
     let isMounted = true;
-    setDetail(undefined);
-    resolveRightsDetail(categoryId, t).then((resolved) => {
-      if (isMounted) setDetail(resolved ?? null);
+    // Bundled copy first, synchronously, so the page is readable immediately.
+    // `undefined` here means this id is not bundled at all - an admin-added
+    // category, say - so the spinner stays until the backend answers.
+    const bundled = getBundledRightsDetail(categoryId, t);
+    setDetail(bundled);
+    fetchRemoteRightsDetail(categoryId, language).then((remote) => {
+      if (!isMounted) return;
+      if (remote) setDetail(remote);
+      else if (!bundled) setDetail(null); // neither source has it
     });
     return () => {
       isMounted = false;
     };
     // t's identity only changes when the active language changes (see
     // I18nProvider), so this re-resolves on language switch too, not every render.
-  }, [categoryId, t]);
+  }, [categoryId, t, language]);
 
   if (detail === undefined) {
     return (

@@ -149,6 +149,7 @@ model RightsCategory {
   description String @db.Text
   intro       String @db.Text
   sources     String @db.Text // citations, one per line
+  order       Int    @default(0) // display order - the Figma sequence, not alphabetical
 
   protections RightsProtection[]
   faqs        RightsFaq[]

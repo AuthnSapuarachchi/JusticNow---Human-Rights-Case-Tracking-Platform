@@ -8,7 +8,10 @@ const listCategories = async (req, res) => {
         const categories = await prisma.rightsCategory.findMany({
             where: { locale },
             select: { categoryId: true, icon: true, title: true, description: true },
-            orderBy: { categoryId: 'asc' },
+            // Figma order, not alphabetical. categoryId ties are ordered stably
+            // so a category added without an explicit order still lands somewhere
+            // predictable rather than shuffling between requests.
+            orderBy: [{ order: 'asc' }, { categoryId: 'asc' }],
         });
         res.json(categories);
     } catch (error) {
