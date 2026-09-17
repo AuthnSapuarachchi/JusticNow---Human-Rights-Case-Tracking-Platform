@@ -15,6 +15,7 @@ import {
   Text,
   useColors,
 } from '@/design-system';
+import { useHomeRoute } from '@/hooks/use-home-route';
 import { useTranslation } from '@/i18n';
 
 import { fetchRemoteCategories, getBundledCategories, type ResolvedCategory } from '../data/rights';
@@ -22,6 +23,7 @@ import { fetchRemoteCategories, getBundledCategories, type ResolvedCategory } fr
 export function KnowYourRightsScreen() {
   const router = useRouter();
   const colors = useColors();
+  const homeRoute = useHomeRoute();
   const { t, language } = useTranslation();
   const [query, setQuery] = useState('');
   const [allCategories, setAllCategories] = useState<ResolvedCategory[]>(() => getBundledCategories(t));
@@ -53,7 +55,7 @@ export function KnowYourRightsScreen() {
   }, [allCategories, query]);
 
   const handleTabPress = (tab: string) => {
-    if (tab === NavTab.Home) router.replace('/');
+    if (tab === NavTab.Home) router.replace(homeRoute);
     if (tab === NavTab.Cases) router.push('/cases');
     if (tab === NavTab.Messages) router.push('/messages');
     if (tab === NavTab.Support) router.push('/legal-support');
