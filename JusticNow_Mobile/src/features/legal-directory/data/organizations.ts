@@ -4,9 +4,12 @@
  * Placeholder Sri Lankan organisations — plausible but fictional, so nothing
  * here implies a real body endorses the app. Distances are kilometres.
  *
- * Shaped to `Organization` so swapping to a real `fetch` is a one-line change
- * in `getOrganizations()` once the backend models these fields.
+ * These are now the offline fallback, not the source of truth — the directory
+ * reads from /api/organizations and only drops back to this list when the
+ * backend is unreachable.
  */
+
+import { API_URL } from '@/api/client';
 
 import type { Organization } from '../types';
 
@@ -118,18 +121,35 @@ export const MOCK_ORGANIZATIONS: Organization[] = [
 ];
 
 /**
- * Stands in for the eventual API call.
+ * Live data with the list above as an offline fallback.
  *
- * Deliberately async and slightly delayed so the screens exercise their real
- * loading and error states rather than rendering synchronously — otherwise the
- * swap to a real endpoint surfaces bugs that were hidden all along.
+ * Same approach as Know Your Rights: someone looking for legal help on a bad
+ * connection still gets a usable directory rather than an empty screen. The
+ * timeout is generous because a cold backend connection measures ~4s.
  */
+const FETCH_TIMEOUT_MS = 10000;
+
+async function fetchJson<T>(path: string): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${API_URL}${path}`, { signal: controller.signal });
+    if (!response.ok) return null;
+    return (await response.json()) as T;
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 export async function getOrganizations(): Promise<Organization[]> {
-  await new Promise((resolve) => setTimeout(resolve, 350));
-  return MOCK_ORGANIZATIONS;
+  const remote = await fetchJson<Organization[]>('/api/organizations');
+  return remote && remote.length > 0 ? remote : MOCK_ORGANIZATIONS;
 }
 
 export async function getOrganizationById(id: string): Promise<Organization | undefined> {
-  await new Promise((resolve) => setTimeout(resolve, 250));
+  const remote = await fetchJson<Organization>(`/api/organizations/${id}`);
+  if (remote) return remote;
   return MOCK_ORGANIZATIONS.find((organization) => organization.id === id);
 }
