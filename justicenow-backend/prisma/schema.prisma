@@ -86,6 +86,16 @@ model LegalOrganization {
   contactEmail String
   verified     Boolean  @default(false)
 
+  // EP-06 directory fields. All optional/defaulted so existing rows and the
+  // officer referral flow keep working without a backfill.
+  description  String?  @db.Text
+  languages    String   @default("") // comma-separated codes: "si,ta,en"
+  categories   String   @default("") // comma-separated slugs: "legalAid,humanRights"
+  isFree       Boolean  @default(true)
+  distanceKm   Float?   // kilometres - never miles
+  location     String?
+  phone        String?
+
   officers     User[]
   referrals    CaseReferral[]
 
