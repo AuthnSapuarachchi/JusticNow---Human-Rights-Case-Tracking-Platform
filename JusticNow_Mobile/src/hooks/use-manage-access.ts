@@ -14,15 +14,15 @@ import { useAuth } from '@/context/AuthContext';
  * Returns false while loading or when the user should not be here, so callers
  * can hold off rendering.
  */
-export function useRequireAdmin(): boolean {
+export function useManageAccess(): boolean {
   const { session, isLoading } = useAuth();
   const router = useRouter();
-  const isAdmin = session?.user.role === 'ADMIN';
+  const canManage = session?.user.role === 'ADMIN';
 
   useEffect(() => {
-    if (isLoading || isAdmin) return;
+    if (isLoading || canManage) return;
     router.replace(session ? '/' : '/login');
-  }, [isLoading, isAdmin, session, router]);
+  }, [isLoading, canManage, session, router]);
 
-  return isAdmin;
+  return canManage;
 }

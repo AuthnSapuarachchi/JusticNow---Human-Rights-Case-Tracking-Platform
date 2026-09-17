@@ -1,6 +1,8 @@
 import { StyleSheet, TextInput, View } from 'react-native';
 
-import { Radius, Spacing, Text, useColors } from '@/design-system';
+import { Radius, Spacing } from '../spacing';
+import { useColors } from '../use-colors';
+import { Text } from './Text';
 
 export type ContentTextFieldProps = {
   label: string;

@@ -14,17 +14,17 @@ import {
   Text,
   useColors,
 } from '@/design-system';
-import type { Organization } from '@/features/legal-directory/types';
+import type { Organization } from '../types';
 
-import { ContentTextField } from '../components/ContentTextField';
-import { useRequireAdmin } from '../hooks/use-require-admin';
+import { ContentTextField } from '@/design-system';
+import { useManageAccess } from '@/hooks/use-manage-access';
 import {
   createOrganization,
   deleteOrganization,
-  fetchOrganizations,
+  fetchOrganizationsForManagement,
   updateOrganization,
   type OrganizationInput,
-} from '../data/contentApi';
+} from '../data/manageOrganizations';
 
 /** Form state is all strings — the API layer converts on submit. */
 type FormState = {
@@ -88,7 +88,7 @@ const toPayload = (form: FormState): Partial<OrganizationInput> => ({
 export function ManageOrganizationsScreen() {
   const router = useRouter();
   const colors = useColors();
-  const isAdmin = useRequireAdmin();
+  const canManage = useManageAccess();
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +101,7 @@ export function ManageOrganizationsScreen() {
   const load = useCallback(async () => {
     try {
       setError('');
-      setOrganizations(await fetchOrganizations());
+      setOrganizations(await fetchOrganizationsForManagement());
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load organisations.');
     } finally {
@@ -111,8 +111,8 @@ export function ManageOrganizationsScreen() {
 
   useEffect(() => {
     // Wait for the guard so a non-admin never fires an admin-only request.
-    if (isAdmin) load();
-  }, [isAdmin, load]);
+    if (canManage) load();
+  }, [canManage, load]);
 
   const setField = (key: keyof FormState, value: string | boolean) =>
     setForm((current) => ({ ...current, [key]: value }));

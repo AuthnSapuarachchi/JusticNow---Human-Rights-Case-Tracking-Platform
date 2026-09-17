@@ -52,7 +52,7 @@ const getCategory = async (req, res) => {
 
 // The public list deliberately omits `id` and the long-form fields; the admin
 // screen needs both to edit and delete.
-const listCategoriesForAdmin = async (req, res) => {
+const listCategoriesForManagement = async (req, res) => {
     try {
         const locale = req.query.locale || 'en';
         const categories = await prisma.rightsCategory.findMany({
@@ -228,7 +228,7 @@ const deleteFaq = async (req, res) => {
 module.exports = {
     listCategories,
     getCategory,
-    listCategoriesForAdmin,
+    listCategoriesForManagement,
     createCategory,
     updateCategory,
     deleteCategory,

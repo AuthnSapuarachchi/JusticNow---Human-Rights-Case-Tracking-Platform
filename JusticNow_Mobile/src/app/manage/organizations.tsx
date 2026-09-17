@@ -1,4 +1,4 @@
-import { ManageOrganizationsScreen } from '@/features/content-management/screens/ManageOrganizationsScreen';
+import { ManageOrganizationsScreen } from '@/features/legal-directory/screens/ManageOrganizationsScreen';
 
 export default function ManageOrganizationsRoute() {
   return <ManageOrganizationsScreen />;

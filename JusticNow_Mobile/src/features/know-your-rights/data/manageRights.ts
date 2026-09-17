@@ -1,15 +1,17 @@
 /**
- * Content management API for EP-06 and EP-07.
+ * Write access to Know Your Rights content (EP-07).
  *
- * Wraps the shared `request()` helper, which already attaches the access token
- * and retries once after refreshing it. Every endpoint below is ADMIN-only on
- * the server; the screens are additionally behind the /admin route guard.
+ * Wraps the shared `request()` helper, which attaches the access token and
+ * retries once after refreshing it. Every endpoint here is ADMIN-only on the
+ * server, so a failed role check surfaces as a 401/403 rather than silently
+ * succeeding.
+ *
+ * `rights.ts` next door holds the public read path.
  */
 
 import { request } from '@/api/client';
-import type { Organization } from '@/features/legal-directory/types';
 
-/** Full category record as the admin endpoint returns it, children included. */
+/** Full category record, children included - the read shape for editing. */
 export type ManagedRightsCategory = {
   id: number;
   categoryId: string;
@@ -41,10 +43,9 @@ export type ManagedFaq = {
   order: number;
 };
 
-// --- Know Your Rights ---
-
+// Returns ids and nested children, which the public list endpoint omits.
 export function fetchRightsForManagement() {
-  return request<ManagedRightsCategory[]>('/api/rights/admin');
+  return request<ManagedRightsCategory[]>('/api/rights/manage');
 }
 
 export function createRightsCategory(data: Partial<ManagedRightsCategory>) {
@@ -84,28 +85,4 @@ export function updateFaq(id: number, data: Partial<ManagedFaq>) {
 
 export function deleteFaq(id: number) {
   return request<void>(`/api/rights/faqs/${id}`, { method: 'DELETE' });
-}
-
-// --- Legal directory ---
-
-export function fetchOrganizations() {
-  return request<Organization[]>('/api/organizations');
-}
-
-/** `contact` is flattened to phone/email, matching what the endpoint accepts. */
-export type OrganizationInput = Omit<Organization, 'id' | 'contact'> & {
-  contactEmail: string;
-  phone?: string;
-};
-
-export function createOrganization(data: Partial<OrganizationInput>) {
-  return request<Organization>('/api/organizations', { method: 'POST', body: JSON.stringify(data) });
-}
-
-export function updateOrganization(id: string, data: Partial<OrganizationInput>) {
-  return request<Organization>(`/api/organizations/${id}`, { method: 'PUT', body: JSON.stringify(data) });
-}
-
-export function deleteOrganization(id: string) {
-  return request<void>(`/api/organizations/${id}`, { method: 'DELETE' });
 }

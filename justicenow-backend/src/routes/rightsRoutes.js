@@ -3,7 +3,7 @@ const { protectRoute, authorizeRoles } = require('../middlewares/authMiddleware'
 const {
     listCategories,
     getCategory,
-    listCategoriesForAdmin,
+    listCategoriesForManagement,
     createCategory,
     updateCategory,
     deleteCategory,
@@ -24,8 +24,8 @@ const adminOnly = [protectRoute, authorizeRoles('ADMIN')];
 // login, matching the anonymity-friendly design of the rest of the app.
 router.get('/', listCategories);
 
-// Must be declared before '/:categoryId' or "admin" is read as a category id.
-router.get('/admin', ...adminOnly, listCategoriesForAdmin);
+// Must be declared before '/:categoryId' or "manage" is read as a category id.
+router.get('/manage', ...adminOnly, listCategoriesForManagement);
 
 router.get('/:categoryId', getCategory);
 

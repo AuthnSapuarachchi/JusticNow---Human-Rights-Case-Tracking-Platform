@@ -14,8 +14,8 @@ import {
   useColors,
 } from '@/design-system';
 
-import { ContentTextField } from '../components/ContentTextField';
-import { useRequireAdmin } from '../hooks/use-require-admin';
+import { ContentTextField } from '@/design-system';
+import { useManageAccess } from '@/hooks/use-manage-access';
 import {
   createFaq,
   createProtection,
@@ -30,7 +30,7 @@ import {
   type ManagedFaq,
   type ManagedProtection,
   type ManagedRightsCategory,
-} from '../data/contentApi';
+} from '../data/manageRights';
 
 type CategoryForm = {
   categoryId: string;
@@ -65,7 +65,7 @@ const toCategoryForm = (category: ManagedRightsCategory): CategoryForm => ({
 export function ManageRightsScreen() {
   const router = useRouter();
   const colors = useColors();
-  const isAdmin = useRequireAdmin();
+  const canManage = useManageAccess();
 
   const [categories, setCategories] = useState<ManagedRightsCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,8 +94,8 @@ export function ManageRightsScreen() {
 
   useEffect(() => {
     // Wait for the guard so a non-admin never fires an admin-only request.
-    if (isAdmin) load();
-  }, [isAdmin, load]);
+    if (canManage) load();
+  }, [canManage, load]);
 
   // Every mutation follows the same shape: run it, surface failures, reload.
   const run = async (action: () => Promise<unknown>) => {

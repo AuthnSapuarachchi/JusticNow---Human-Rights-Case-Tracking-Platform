@@ -1,4 +1,4 @@
-import { ManageRightsScreen } from '@/features/content-management/screens/ManageRightsScreen';
+import { ManageRightsScreen } from '@/features/know-your-rights/screens/ManageRightsScreen';
 
 export default function ManageRightsRoute() {
   return <ManageRightsScreen />;
