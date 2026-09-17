@@ -27,10 +27,12 @@ const priorityCases = [
   { reference: 'JN-2026-0407', category: 'Digital privacy', status: 'Submitted', priority: 'High', officer: 'Unassigned' },
 ];
 
+// `route` is optional - shortcuts without one are not built yet.
 const shortcuts = [
   { label: 'Manage cases', icon: 'briefcase-outline' as const },
   { label: 'Manage officers', icon: 'people-outline' as const },
-  { label: 'Organizations', icon: 'business-outline' as const },
+  { label: 'Organizations', icon: 'business-outline' as const, route: '/admin/organizations' as const },
+  { label: 'Know Your Rights', icon: 'book-outline' as const, route: '/admin/rights' as const },
 ];
 
 export function AdminDashboardScreen() {
@@ -128,7 +130,7 @@ export function AdminDashboardScreen() {
         </View>
         <View style={styles.shortcutGrid}>
           {shortcuts.map((shortcut) => (
-            <Pressable key={shortcut.label} accessibilityRole="button" onPress={() => undefined} style={({ pressed }) => [styles.shortcut, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
+            <Pressable key={shortcut.label} accessibilityRole="button" onPress={() => shortcut.route && router.push(shortcut.route)} style={({ pressed }) => [styles.shortcut, { backgroundColor: colors.surface, borderColor: colors.border }, pressed && styles.pressed]}>
               <View style={[styles.shortcutIcon, { backgroundColor: colors.surfaceMuted }]}>
                 <Ionicons color={colors.primary} name={shortcut.icon} size={20} />
               </View>
