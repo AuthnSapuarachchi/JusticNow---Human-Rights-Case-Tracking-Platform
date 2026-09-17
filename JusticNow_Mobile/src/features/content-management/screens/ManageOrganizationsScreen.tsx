@@ -16,14 +16,15 @@ import {
 } from '@/design-system';
 import type { Organization } from '@/features/legal-directory/types';
 
-import { AdminTextField } from '../components/AdminTextField';
+import { ContentTextField } from '../components/ContentTextField';
+import { useRequireAdmin } from '../hooks/use-require-admin';
 import {
   createOrganization,
   deleteOrganization,
   fetchOrganizations,
   updateOrganization,
   type OrganizationInput,
-} from '../data/adminApi';
+} from '../data/contentApi';
 
 /** Form state is all strings — the API layer converts on submit. */
 type FormState = {
@@ -84,9 +85,10 @@ const toPayload = (form: FormState): Partial<OrganizationInput> => ({
   verified: form.verified,
 });
 
-export function AdminOrganizationsScreen() {
+export function ManageOrganizationsScreen() {
   const router = useRouter();
   const colors = useColors();
+  const isAdmin = useRequireAdmin();
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -108,8 +110,9 @@ export function AdminOrganizationsScreen() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    // Wait for the guard so a non-admin never fires an admin-only request.
+    if (isAdmin) load();
+  }, [isAdmin, load]);
 
   const setField = (key: keyof FormState, value: string | boolean) =>
     setForm((current) => ({ ...current, [key]: value }));
@@ -168,34 +171,34 @@ export function AdminOrganizationsScreen() {
 
   const renderForm = () => (
     <Card style={styles.form}>
-      <AdminTextField label="Name" onChangeText={(v) => setField('name', v)} value={form.name} />
-      <AdminTextField
+      <ContentTextField label="Name" onChangeText={(v) => setField('name', v)} value={form.name} />
+      <ContentTextField
         label="Description"
         multiline
         onChangeText={(v) => setField('description', v)}
         value={form.description}
       />
-      <AdminTextField
+      <ContentTextField
         label="Contact email"
         onChangeText={(v) => setField('contactEmail', v)}
         value={form.contactEmail}
       />
-      <AdminTextField label="Phone" onChangeText={(v) => setField('phone', v)} value={form.phone} />
-      <AdminTextField label="Location" onChangeText={(v) => setField('location', v)} value={form.location} />
-      <AdminTextField
+      <ContentTextField label="Phone" onChangeText={(v) => setField('phone', v)} value={form.phone} />
+      <ContentTextField label="Location" onChangeText={(v) => setField('location', v)} value={form.location} />
+      <ContentTextField
         hint="Kilometres, never miles."
         keyboardType="numeric"
         label="Distance (km)"
         onChangeText={(v) => setField('distanceKm', v)}
         value={form.distanceKm}
       />
-      <AdminTextField
+      <ContentTextField
         hint="Comma separated codes, e.g. si, ta, en"
         label="Languages"
         onChangeText={(v) => setField('languages', v)}
         value={form.languages}
       />
-      <AdminTextField
+      <ContentTextField
         hint="Comma separated, e.g. legalAid, humanRights"
         label="Categories"
         onChangeText={(v) => setField('categories', v)}

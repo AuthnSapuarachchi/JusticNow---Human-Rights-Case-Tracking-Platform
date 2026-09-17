@@ -14,7 +14,8 @@ import {
   useColors,
 } from '@/design-system';
 
-import { AdminTextField } from '../components/AdminTextField';
+import { ContentTextField } from '../components/ContentTextField';
+import { useRequireAdmin } from '../hooks/use-require-admin';
 import {
   createFaq,
   createProtection,
@@ -22,14 +23,14 @@ import {
   deleteFaq,
   deleteProtection,
   deleteRightsCategory,
-  fetchRightsForAdmin,
+  fetchRightsForManagement,
   updateFaq,
   updateProtection,
   updateRightsCategory,
-  type AdminFaq,
-  type AdminProtection,
-  type AdminRightsCategory,
-} from '../data/adminApi';
+  type ManagedFaq,
+  type ManagedProtection,
+  type ManagedRightsCategory,
+} from '../data/contentApi';
 
 type CategoryForm = {
   categoryId: string;
@@ -51,7 +52,7 @@ const EMPTY_CATEGORY: CategoryForm = {
   order: '0',
 };
 
-const toCategoryForm = (category: AdminRightsCategory): CategoryForm => ({
+const toCategoryForm = (category: ManagedRightsCategory): CategoryForm => ({
   categoryId: category.categoryId,
   icon: category.icon,
   title: category.title,
@@ -61,11 +62,12 @@ const toCategoryForm = (category: AdminRightsCategory): CategoryForm => ({
   order: String(category.order),
 });
 
-export function AdminRightsScreen() {
+export function ManageRightsScreen() {
   const router = useRouter();
   const colors = useColors();
+  const isAdmin = useRequireAdmin();
 
-  const [categories, setCategories] = useState<AdminRightsCategory[]>([]);
+  const [categories, setCategories] = useState<ManagedRightsCategory[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -82,7 +84,7 @@ export function AdminRightsScreen() {
   const load = useCallback(async () => {
     try {
       setError('');
-      setCategories(await fetchRightsForAdmin());
+      setCategories(await fetchRightsForManagement());
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load rights content.');
     } finally {
@@ -91,8 +93,9 @@ export function AdminRightsScreen() {
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    // Wait for the guard so a non-admin never fires an admin-only request.
+    if (isAdmin) load();
+  }, [isAdmin, load]);
 
   // Every mutation follows the same shape: run it, surface failures, reload.
   const run = async (action: () => Promise<unknown>) => {
@@ -121,7 +124,7 @@ export function AdminRightsScreen() {
     order: Number(form.order) || 0,
   });
 
-  const handleSaveCategory = async (existing?: AdminRightsCategory) => {
+  const handleSaveCategory = async (existing?: ManagedRightsCategory) => {
     if (!categoryForm.categoryId.trim() || !categoryForm.title.trim()) {
       setError('A category id and title are required.');
       return;
@@ -142,42 +145,42 @@ export function AdminRightsScreen() {
       { text: 'Delete', style: 'destructive', onPress: onConfirm },
     ]);
 
-  const renderCategoryForm = (existing?: AdminRightsCategory) => (
+  const renderCategoryForm = (existing?: ManagedRightsCategory) => (
     <Card style={styles.form}>
-      <AdminTextField
+      <ContentTextField
         hint="Stable slug used in the app URL, e.g. workplace"
         label="Category id"
         onChangeText={(v) => setCategoryField('categoryId', v)}
         value={categoryForm.categoryId}
       />
-      <AdminTextField label="Title" onChangeText={(v) => setCategoryField('title', v)} value={categoryForm.title} />
-      <AdminTextField
+      <ContentTextField label="Title" onChangeText={(v) => setCategoryField('title', v)} value={categoryForm.title} />
+      <ContentTextField
         hint="Plain language — this is the tile subtitle."
         label="Description"
         multiline
         onChangeText={(v) => setCategoryField('description', v)}
         value={categoryForm.description}
       />
-      <AdminTextField
+      <ContentTextField
         label="Intro"
         multiline
         onChangeText={(v) => setCategoryField('intro', v)}
         value={categoryForm.intro}
       />
-      <AdminTextField
+      <ContentTextField
         hint="One citation per line. Sri Lankan law only."
         label="Sources"
         multiline
         onChangeText={(v) => setCategoryField('sources', v)}
         value={categoryForm.sources}
       />
-      <AdminTextField
+      <ContentTextField
         hint="Ionicons name, e.g. briefcase"
         label="Icon"
         onChangeText={(v) => setCategoryField('icon', v)}
         value={categoryForm.icon}
       />
-      <AdminTextField
+      <ContentTextField
         hint="Lower numbers appear first."
         keyboardType="numeric"
         label="Display order"
@@ -199,10 +202,10 @@ export function AdminRightsScreen() {
     </Card>
   );
 
-  const renderProtections = (category: AdminRightsCategory) => (
+  const renderProtections = (category: ManagedRightsCategory) => (
     <View style={styles.subSection}>
       <SectionHeading title={`Key protections (${category.protections.length})`} />
-      {category.protections.map((protection: AdminProtection) => (
+      {category.protections.map((protection: ManagedProtection) => (
         <Card key={protection.id} style={styles.subRow}>
           <Text variant="bodyStrong">{protection.title}</Text>
           <Text color="textSecondary" variant="caption">
@@ -224,17 +227,17 @@ export function AdminRightsScreen() {
 
       <Card style={styles.form}>
         <Text variant="label">Add a protection</Text>
-        <AdminTextField
+        <ContentTextField
           label="Id"
           onChangeText={(v) => setProtectionDraft((d) => ({ ...d, id: v }))}
           value={protectionDraft.id}
         />
-        <AdminTextField
+        <ContentTextField
           label="Title"
           onChangeText={(v) => setProtectionDraft((d) => ({ ...d, title: v }))}
           value={protectionDraft.title}
         />
-        <AdminTextField
+        <ContentTextField
           label="Body"
           multiline
           onChangeText={(v) => setProtectionDraft((d) => ({ ...d, body: v }))}
@@ -264,10 +267,10 @@ export function AdminRightsScreen() {
     </View>
   );
 
-  const renderFaqs = (category: AdminRightsCategory) => (
+  const renderFaqs = (category: ManagedRightsCategory) => (
     <View style={styles.subSection}>
       <SectionHeading title={`FAQs (${category.faqs.length})`} />
-      {category.faqs.map((faq: AdminFaq) => (
+      {category.faqs.map((faq: ManagedFaq) => (
         <Card key={faq.id} style={styles.subRow}>
           <Text variant="bodyStrong">{faq.question}</Text>
           <Text color="textSecondary" variant="caption">
@@ -287,13 +290,13 @@ export function AdminRightsScreen() {
 
       <Card style={styles.form}>
         <Text variant="label">Add a FAQ</Text>
-        <AdminTextField label="Id" onChangeText={(v) => setFaqDraft((d) => ({ ...d, id: v }))} value={faqDraft.id} />
-        <AdminTextField
+        <ContentTextField label="Id" onChangeText={(v) => setFaqDraft((d) => ({ ...d, id: v }))} value={faqDraft.id} />
+        <ContentTextField
           label="Question"
           onChangeText={(v) => setFaqDraft((d) => ({ ...d, question: v }))}
           value={faqDraft.question}
         />
-        <AdminTextField
+        <ContentTextField
           label="Answer"
           multiline
           onChangeText={(v) => setFaqDraft((d) => ({ ...d, answer: v }))}

@@ -2,7 +2,7 @@ import { StyleSheet, TextInput, View } from 'react-native';
 
 import { Radius, Spacing, Text, useColors } from '@/design-system';
 
-export type AdminTextFieldProps = {
+export type ContentTextFieldProps = {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
@@ -14,7 +14,7 @@ export type AdminTextFieldProps = {
 };
 
 /** Labelled input used across both admin content forms. */
-export function AdminTextField({
+export function ContentTextField({
   label,
   value,
   onChangeText,
@@ -22,7 +22,7 @@ export function AdminTextField({
   multiline = false,
   keyboardType = 'default',
   hint,
-}: AdminTextFieldProps) {
+}: ContentTextFieldProps) {
   const colors = useColors();
 
   return (

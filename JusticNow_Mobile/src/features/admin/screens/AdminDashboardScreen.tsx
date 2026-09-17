@@ -31,8 +31,8 @@ const priorityCases = [
 const shortcuts = [
   { label: 'Manage cases', icon: 'briefcase-outline' as const },
   { label: 'Manage officers', icon: 'people-outline' as const },
-  { label: 'Organizations', icon: 'business-outline' as const, route: '/admin/organizations' as const },
-  { label: 'Know Your Rights', icon: 'book-outline' as const, route: '/admin/rights' as const },
+  { label: 'Organizations', icon: 'business-outline' as const, route: '/manage/organizations' as const },
+  { label: 'Know Your Rights', icon: 'book-outline' as const, route: '/manage/rights' as const },
 ];
 
 export function AdminDashboardScreen() {
