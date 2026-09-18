@@ -86,6 +86,7 @@ export const en = {
   'request.privacyBody':
     'By submitting this request you authorise JusticeNow to share your basic profile information and the selected case details with {{organisation}}. Your data remains encrypted end to end.',
   'request.consent': 'I consent to sharing my report and evidence with this organisation.',
+  'request.consentLabel': 'Consent to sharing',
   'request.send': 'Send request',
   'request.sending': 'Sending your request…',
   'request.sent': 'Request sent',

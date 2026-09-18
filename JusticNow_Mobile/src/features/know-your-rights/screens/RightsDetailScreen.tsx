@@ -124,7 +124,7 @@ export function RightsDetailScreen({ categoryId }: RightsDetailScreenProps) {
             icon="document-text"
             iconPosition="leading"
             label={t('rights.reportIncident')}
-            onPress={() => router.push('/')}
+            onPress={() => router.push('/report')}
           />
           <Button
             fullWidth

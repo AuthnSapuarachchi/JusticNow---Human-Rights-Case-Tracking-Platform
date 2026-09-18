@@ -216,6 +216,8 @@ export function RequestSupportScreen({ organizationId }: RequestSupportScreenPro
             </Text>
 
             <Pressable
+              accessibilityHint={t('request.consent')}
+              accessibilityLabel={t('request.consentLabel')}
               accessibilityRole="checkbox"
               accessibilityState={{ checked: consentGiven }}
               onPress={() => {
