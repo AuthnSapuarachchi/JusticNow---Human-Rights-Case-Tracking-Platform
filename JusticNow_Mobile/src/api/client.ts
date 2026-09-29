@@ -1,7 +1,26 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const API_URL = 'http://192.168.134.76:5000';
+const API_PORT = 5000;
+
+// Prefer an explicit override; otherwise reach the backend on the same host that serves the app,
+// so the address follows the dev machine's current LAN IP instead of a hardcoded one.
+function resolveApiUrl(): string {
+	const override = process.env.EXPO_PUBLIC_API_URL;
+	if (override) return override.replace(/\/$/, '');
+
+	if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+		return `http://${window.location.hostname}:${API_PORT}`;
+	}
+
+	const devHost = Constants.expoConfig?.hostUri?.split(':')[0];
+	if (devHost) return `http://${devHost}:${API_PORT}`;
+
+	return `http://localhost:${API_PORT}`;
+}
+
+const API_URL = resolveApiUrl();
 export type ApiError = { error?: string };
 
 type StoredSession = { accessToken?: string; refreshToken?: string };
