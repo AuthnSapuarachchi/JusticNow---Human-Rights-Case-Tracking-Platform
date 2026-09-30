@@ -23,7 +23,7 @@ export function AccountVerificationScreen() {
   const [error, setError] = useState('');
   useEffect(() => {
     setLoading(true);
-    getAccountVerifications(filter === 'ALL' ? 'ALL' : filter)
+    getAccountVerifications(filter === 'PENDING' ? 'PENDING_VERIFICATION' : filter)
       .then((items) => {
         setRegistrations(items.map((item) => ({
           id: item.id,
