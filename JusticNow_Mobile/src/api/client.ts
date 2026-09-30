@@ -1,21 +1,26 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-/**
- * Point this at whichever machine is running the backend.
- *
- * A hardcoded LAN IP cannot be right for everyone - it is whoever committed
- * last, and it breaks for the rest of the team on every network change. So it
- * now reads EXPO_PUBLIC_API_URL first and only falls back to the literal.
- *
- * Create JusticNow_Mobile/.env.local (already gitignored) with your own address:
- *   EXPO_PUBLIC_API_URL=http://192.168.1.5:5000
- * Find your IP with `ipconfig` (Windows) or `ifconfig` (macOS/Linux).
- *
- * Expo inlines EXPO_PUBLIC_* at build time, so restart the dev server after
- * changing it.
- */
-const API_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://192.168.134.76:5000';
+const API_PORT = 5000;
+
+// Prefer an explicit override; otherwise reach the backend on the same host that serves the app,
+// so the address follows the dev machine's current LAN IP instead of a hardcoded one.
+function resolveApiUrl(): string {
+	const override = process.env.EXPO_PUBLIC_API_URL;
+	if (override) return override.replace(/\/$/, '');
+
+	if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+		return `http://${window.location.hostname}:${API_PORT}`;
+	}
+
+	const devHost = Constants.expoConfig?.hostUri?.split(':')[0];
+	if (devHost) return `http://${devHost}:${API_PORT}`;
+
+	return `http://localhost:${API_PORT}`;
+}
+
+const API_URL = resolveApiUrl();
 export type ApiError = { error?: string };
 
 type StoredSession = { accessToken?: string; refreshToken?: string };
