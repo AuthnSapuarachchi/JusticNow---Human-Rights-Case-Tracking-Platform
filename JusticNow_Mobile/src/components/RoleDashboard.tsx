@@ -15,6 +15,12 @@ const dashboardContent: Record<Exclude<UserRole, 'CITIZEN'>, { title: string; su
     icon: 'briefcase-outline',
     actions: ['Case queue', 'Citizen messages', 'Reports'],
   },
+  LAWYER: {
+    title: 'Legal support workspace',
+    subtitle: 'Review verified referrals and provide trusted legal support to citizens.',
+    icon: 'briefcase-outline',
+    actions: ['Support requests', 'Citizen messages', 'Reports'],
+  },
   ADMIN: {
     title: 'Admin console',
     subtitle: 'Manage platform access, organizations, and system activity from one place.',

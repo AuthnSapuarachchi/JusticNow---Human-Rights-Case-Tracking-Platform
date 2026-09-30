@@ -78,7 +78,7 @@ type FieldProps = {
   placeholder: string;
   colors: ReturnType<typeof useColors>;
   secureTextEntry?: boolean;
-  keyboardType?: 'email-address' | 'default';
+  keyboardType?: 'email-address' | 'default' | 'phone-pad' | 'numeric';
   autoCapitalize?: 'none' | 'sentences';
   trailing?: React.ReactNode;
 };

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protectRoute, authorizeRoles } = require('../middlewares/authMiddleware');
+const { requireVerifiedRole } = require('../middlewares/verifiedRoleMiddleware');
 const {
     getDashboardStats,
     getOfficerCases,
@@ -19,7 +20,7 @@ const {
 } = require('../controllers/officerController');
 
 // All officer routes are guarded for OFFICER and ADMIN roles
-router.use(protectRoute, authorizeRoles('OFFICER', 'ADMIN'));
+router.use(protectRoute, authorizeRoles('OFFICER', 'ADMIN'), requireVerifiedRole);
 
 // Dashboard stats
 router.get('/dashboard/stats', getDashboardStats);
