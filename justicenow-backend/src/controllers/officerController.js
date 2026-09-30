@@ -232,11 +232,15 @@ const assignCase = async (req, res) => {
 
         const targetOfficer = await prisma.user.findUnique({
             where: { id: targetOfficerId },
-            select: { id: true, name: true, email: true, role: true },
+            select: { id: true, name: true, email: true, role: true, isActive: true },
         });
 
         if (!targetOfficer || (targetOfficer.role !== 'OFFICER' && targetOfficer.role !== 'ADMIN')) {
             return res.status(400).json({ error: 'Target user is not an eligible officer or admin.' });
+        }
+
+        if (targetOfficer.isActive === false) {
+            return res.status(400).json({ error: 'Cannot assign a case to a deactivated officer.' });
         }
 
         const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
