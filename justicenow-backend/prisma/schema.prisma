@@ -57,6 +57,7 @@ model User {
   password       String
   name           String?
   role           Role               @default(OFFICER)
+  isActive       Boolean            @default(true)
   
   organizationId Int?
   organization   LegalOrganization? @relation(fields: [organizationId], references: [id])
@@ -83,6 +84,9 @@ model LegalOrganization {
   id           Int      @id @default(autoincrement())
   name         String
   contactEmail String
+  phone        String?
+  location     String?
+  description  String?  @db.Text
   verified     Boolean  @default(false)
   
   officers     User[]   
@@ -240,4 +244,16 @@ model CaseAction {
   createdAt  DateTime       @default(now())
 
   @@map("caseaction")
+}
+
+// --- 4. ADMIN-MANAGED CONFIGURATION ---
+model ViolationCategoryConfig {
+  id          Int               @id @default(autoincrement())
+  code        ViolationCategory @unique
+  label       String
+  description String?           @db.Text
+  isActive    Boolean           @default(true)
+  updatedAt   DateTime          @updatedAt
+
+  @@map("violationcategoryconfig")
 }

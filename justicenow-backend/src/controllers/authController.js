@@ -77,6 +77,11 @@ const loginOfficer = async (req, res) => {
         const isMatch = await bcrypt.compare(password, officer.password);
         if (!isMatch) return res.status(401).json({ error: 'Invalid credentials.' });
 
+        //johan-dev
+        if (officer.isActive === false) {
+            return res.status(403).json({ error: 'This account has been deactivated. Please contact an administrator.' });
+        }
+
         // Access Token: Short lifespan (e.g., 15 minutes) for security
         const tokens = createTokens(officer);
 
@@ -106,22 +111,32 @@ const refreshUserToken = async (req, res) => {
         }
 
         // Verify the refresh token against the REFRESH secret
-        jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET, (err, decoded) => {
-            if (err) {
-                return res.status(403).json({ error: 'Invalid or expired refresh token. Please log in again.' });
-            }
+        let decoded;
+        try {
+            decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+        } catch {
+            return res.status(403).json({ error: 'Invalid or expired refresh token. Please log in again.' });
+        }
 
-            // If valid, issue a brand new Access Token for another 15 minutes
-            const newAccessToken = jwt.sign(
-                { id: decoded.id, role: decoded.role },
-                process.env.JWT_SECRET,
-                { expiresIn: '15m' }
-            );
+        // Deactivated or deleted accounts cannot refresh their session
+        const user = await prisma.user.findUnique({
+            where: { id: decoded.id },
+            select: { id: true, role: true, isActive: true },
+        });
+        if (!user || user.isActive === false) {
+            return res.status(403).json({ error: 'This account is no longer active. Please log in again.' });
+        }
 
-            res.status(200).json({ 
-                message: 'Token refreshed successfully!',
-                accessToken: newAccessToken 
-            });
+        // If valid, issue a brand new Access Token for another 15 minutes
+        const newAccessToken = jwt.sign(
+            { id: user.id, role: user.role },
+            process.env.JWT_SECRET,
+            { expiresIn: '15m' }
+        );
+
+        res.status(200).json({
+            message: 'Token refreshed successfully!',
+            accessToken: newAccessToken
         });
     } catch (error) {
         console.error(error);
