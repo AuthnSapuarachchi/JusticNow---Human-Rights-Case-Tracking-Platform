@@ -82,7 +82,7 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
     if (result.canceled) return;
     const asset = result.assets[0];
     try {
-      const attachment = await uploadAttachment({ uri: asset.uri, name: asset.fileName || `attachment-${Date.now()}.jpg`, type: asset.mimeType || 'image/jpeg' }, session?.accessToken);
+      const attachment = await uploadAttachment(caseId, { uri: asset.uri, name: asset.fileName || `attachment-${Date.now()}.jpg`, type: asset.mimeType || 'image/jpeg' }, session?.accessToken);
       await handleSend(attachment);
     } catch {
       setError('Unable to share this file. Please try again.');

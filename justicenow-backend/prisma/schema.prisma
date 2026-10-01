@@ -161,6 +161,7 @@ model Case {
   location       String?
   actionRequest  String?
   status         CaseStatus          @default(SUBMITTED)
+  approvedAt     DateTime?
   priority       CasePriority        @default(NORMAL)
   escalated      Boolean             @default(false)
   escalatedAt    DateTime?

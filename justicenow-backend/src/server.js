@@ -61,11 +61,20 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
     socket.on('chat:join', async (caseId) => {
-        const numericCaseId = Number(caseId);
-        const foundCase = Number.isInteger(numericCaseId) && numericCaseId > 0
-            ? await prisma.case.findUnique({ where: { id: numericCaseId } })
-            : await prisma.case.findFirst({ where: { trackingCode: { is: { code: String(caseId) } } } });
-        if (foundCase) socket.join(`case:${foundCase.id}`);
+        try {
+            const numericCaseId = Number(caseId);
+            const foundCase = Number.isInteger(numericCaseId) && numericCaseId > 0
+                ? await prisma.case.findUnique({ where: { id: numericCaseId } })
+                : await prisma.case.findFirst({ where: { trackingCode: { is: { code: String(caseId) } } } });
+            const user = socket.user;
+            const isParticipant = foundCase && (
+                (user.role === 'CITIZEN' && foundCase.reporterId === user.id) ||
+                (user.role === 'OFFICER' && foundCase.officerId === user.id)
+            );
+            if (isParticipant && foundCase.approvedAt) socket.join(`case:${foundCase.id}`);
+        } catch (error) {
+            console.error('Unable to join case chat:', error);
+        }
     });
     socket.on('chat:leave', (caseId) => socket.leave(`case:${caseId}`));
 });

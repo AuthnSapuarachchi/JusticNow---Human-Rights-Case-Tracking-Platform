@@ -287,6 +287,61 @@ const assignCase = async (req, res) => {
 };
 
 /**
+ * PATCH /api/officer/cases/:caseId/approve
+ * Approves a case assigned to the authenticated officer.
+ */
+const approveCase = async (req, res) => {
+    try {
+        const caseId = parseCaseId(req.params.caseId);
+        if (!caseId) return res.status(400).json({ error: 'Invalid case ID.' });
+        if (req.user.role !== 'OFFICER') return res.status(403).json({ error: 'Only the assigned officer can approve this case.' });
+
+        const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
+        if (!existingCase) return res.status(404).json({ error: 'Case not found.' });
+        if (existingCase.officerId !== req.user.id) {
+            return res.status(403).json({ error: 'Only the assigned officer can approve this case.' });
+        }
+        if (existingCase.approvedAt) return res.status(400).json({ error: 'This case has already been approved.' });
+
+        const approvalTime = new Date();
+        const [updatedCase, statusHistory, action] = await prisma.$transaction([
+            prisma.case.update({
+                where: { id: caseId },
+                data: { approvedAt: approvalTime, status: 'UNDER_REVIEW' },
+                include: {
+                    officer: { select: { id: true, name: true, email: true } },
+                    trackingCode: true,
+                },
+            }),
+            prisma.caseStatusHistory.create({
+                data: {
+                    caseId,
+                    fromStatus: existingCase.status,
+                    toStatus: 'UNDER_REVIEW',
+                    changedById: req.user.id,
+                    note: 'Case approved by assigned officer.',
+                },
+                include: { changedBy: { select: { id: true, name: true, email: true, role: true } } },
+            }),
+            prisma.caseAction.create({
+                data: {
+                    caseId,
+                    actorId: req.user.id,
+                    actionType: 'STATUS_CHANGED',
+                    detail: JSON.stringify({ action: 'APPROVED', from: existingCase.status, to: 'UNDER_REVIEW' }),
+                },
+                include: { actor: { select: { id: true, name: true, email: true } } },
+            }),
+        ]);
+
+        res.json({ message: 'Case approved. Private messaging is now available.', case: updatedCase, statusHistory, action });
+    } catch (error) {
+        console.error('Error approving case:', error);
+        res.status(500).json({ error: 'Unable to approve case.' });
+    }
+};
+
+/**
  * PATCH /api/officer/cases/:caseId/status
  * Validates transition, writes CaseStatusHistory + CaseAction
  */
@@ -801,6 +856,7 @@ module.exports = {
     getOfficerCases,
     getOfficerCaseDetail,
     assignCase,
+    approveCase,
     updateCaseStatus,
     addCaseNote,
     getCaseNotes,

@@ -15,6 +15,7 @@ const emptyReportDraft = {
   location: '',
   description: '',
   pin: '',
+  officerId: null as number | null,
   files: [] as any[],
 };
 
@@ -39,6 +40,7 @@ export default function ReportFlowScreen() {
             location: typeof parsedDraft.location === 'string' ? parsedDraft.location : '',
             description: typeof parsedDraft.description === 'string' ? parsedDraft.description : '',
             pin: typeof parsedDraft.pin === 'string' ? parsedDraft.pin.replace(/\D/g, '').slice(0, 12) : '',
+            officerId: Number.isInteger(parsedDraft.officerId) ? parsedDraft.officerId : null,
             files: Array.isArray(parsedDraft.files) ? parsedDraft.files : [],
           });
         }
@@ -78,7 +80,7 @@ export default function ReportFlowScreen() {
         {currentStep === 1 && <StepOneIncident data={formData} updateData={setFormData} onNext={nextStep} />}
         {currentStep === 2 && <StepTwoCategory data={formData} updateData={setFormData} onNext={nextStep} onPrev={prevStep} />}
         {currentStep === 3 && <StepThreeEvidence data={formData} updateData={setFormData} onNext={nextStep} onPrev={prevStep} />}
-        {currentStep === 4 && <StepFourReview data={formData} onPrev={prevStep} onSubmit={handleSubmitFinal} />}
+        {currentStep === 4 && <StepFourReview data={formData} onPrev={prevStep} onSelectOfficer={(officerId) => setFormData((current) => ({ ...current, officerId }))} onSubmit={handleSubmitFinal} />}
       </View>
     </SafeAreaView>
   );

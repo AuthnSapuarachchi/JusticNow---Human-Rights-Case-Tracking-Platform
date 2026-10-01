@@ -7,6 +7,7 @@ const {
     getOfficerCases,
     getOfficerCaseDetail,
     assignCase,
+    approveCase,
     updateCaseStatus,
     addCaseNote,
     getCaseNotes,
@@ -34,6 +35,7 @@ router.get('/cases/:caseId', getOfficerCaseDetail);
 
 // Case assignment & status transitions
 router.patch('/cases/:caseId/assign', assignCase);
+router.patch('/cases/:caseId/approve', approveCase);
 router.patch('/cases/:caseId/status', updateCaseStatus);
 
 // Case notes

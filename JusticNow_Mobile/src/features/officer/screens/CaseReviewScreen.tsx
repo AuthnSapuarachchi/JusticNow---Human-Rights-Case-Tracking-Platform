@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  approveCase,
   assignCase,
   getOfficerCase,
   OfficerCaseDetail,
@@ -20,6 +21,7 @@ import {
 import { Badge, Button, Card, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
+import { useAuth } from '@/context/AuthContext';
 import {
   formatCaseDate,
   formatCaseDateTime,
@@ -42,14 +44,20 @@ interface CaseReviewScreenProps {
 export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) {
   const colors = useColors();
   const router = useRouter();
+  const { session } = useAuth();
   const params = useLocalSearchParams<{ id?: string; caseId?: string }>();
   const activeCaseId = propCaseId || params.id || params.caseId;
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/officer/queue' as any);
+  };
 
   const [caseDetail, setCaseDetail] = useState<OfficerCaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   // Active section tab
   const [activeTab, setActiveTab] = useState<'evidence' | 'notes' | 'info' | 'referrals' | 'actions'>(
@@ -100,6 +108,25 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
     }
   };
 
+  const handleApprove = async () => {
+    if (!caseDetail) return;
+    try {
+      setApproving(true);
+      const result = await approveCase(caseDetail.id);
+      setCaseDetail((current) => current ? {
+        ...current,
+        ...result.case,
+        statusHistory: [result.statusHistory, ...current.statusHistory],
+        actions: [result.action, ...current.actions],
+      } : current);
+      Alert.alert('Case Approved', result.message);
+    } catch (err: any) {
+      Alert.alert('Approval Failed', err?.message || 'Unable to approve this case.');
+    } finally {
+      setApproving(false);
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={[styles.centerContainer, { backgroundColor: colors.canvas }]}>
@@ -133,7 +160,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
         <Pressable
           accessibilityLabel="Back to Queue"
           hitSlop={8}
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
           <Ionicons color={colors.textPrimary} name="arrow-back" size={24} />
@@ -284,6 +311,25 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 variant="secondary"
               />
             )}
+
+            {caseDetail.officerId === session?.user.id && !caseDetail.approvedAt ? (
+              <Button
+                icon="checkmark-circle-outline"
+                label={approving ? 'Approving...' : 'Approve Case'}
+                loading={approving}
+                onPress={handleApprove}
+                variant="primary"
+              />
+            ) : null}
+
+            {caseDetail.officerId === session?.user.id && caseDetail.approvedAt ? (
+              <Button
+                icon="chatbubble-ellipses-outline"
+                label="Message Citizen"
+                onPress={() => router.push(`/cases/${caseDetail.id}/messages` as any)}
+                variant="secondary"
+              />
+            ) : null}
 
             <Button
               icon="sync-outline"

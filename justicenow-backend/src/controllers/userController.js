@@ -3,7 +3,7 @@ const prisma = require('../config/db');
 const listOfficers = async (req, res) => {
     try {
         const officers = await prisma.user.findMany({
-            where: { role: 'OFFICER' },
+            where: { role: 'OFFICER', isActive: true },
             select: { id: true, name: true, email: true, role: true },
             orderBy: { name: 'asc' },
         });
