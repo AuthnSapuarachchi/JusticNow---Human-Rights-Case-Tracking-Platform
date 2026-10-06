@@ -16,6 +16,7 @@ const {
     closeCase,
     escalateCase,
     getOrganizations,
+    getActiveOfficers,
 } = require('../controllers/officerController');
 
 // All officer routes are guarded for OFFICER and ADMIN roles
@@ -26,6 +27,9 @@ router.get('/dashboard/stats', getDashboardStats);
 
 // Organizations helper for referrals
 router.get('/organizations', getOrganizations);
+
+// Officers helper for referring a case to another officer
+router.get('/officers', getActiveOfficers);
 
 // Case queue & details
 router.get('/cases', getOfficerCases);

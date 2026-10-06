@@ -13,10 +13,12 @@ import {
 import {
   CaseReferralItem,
   createCaseReferral,
+  getActiveOfficers,
   getLegalOrganizations,
   LegalOrganizationItem,
+  OfficerSummary,
 } from '@/api/officerApi';
-import { Badge, Button, Card, Text } from '@/design-system/components';
+import { Badge, Button, Card, FilterChip, Text } from '@/design-system/components';
 import { Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
 
@@ -24,14 +26,19 @@ interface ReferralModalProps {
   visible: boolean;
   caseId: number;
   onClose: () => void;
-  onSuccess: (newReferral: CaseReferralItem) => void;
+  /** `reassigned` is true when the case was handed to another officer */
+  onSuccess: (newReferral: CaseReferralItem, reassigned?: boolean) => void;
 }
 
 export function ReferralModal({ visible, caseId, onClose, onSuccess }: ReferralModalProps) {
   const colors = useColors();
+  const [targetType, setTargetType] = useState<'organization' | 'officer'>('organization');
   const [organizations, setOrganizations] = useState<LegalOrganizationItem[]>([]);
   const [selectedOrgId, setSelectedOrgId] = useState<number | null>(null);
   const [customOrgText, setCustomOrgText] = useState('');
+  const [officers, setOfficers] = useState<OfficerSummary[]>([]);
+  const [selectedOfficerId, setSelectedOfficerId] = useState<number | null>(null);
+  const [fetchingOfficers, setFetchingOfficers] = useState(false);
   const [reason, setReason] = useState('');
   const [loading, setLoading] = useState(false);
   const [fetchingOrgs, setFetchingOrgs] = useState(false);
@@ -51,9 +58,62 @@ export function ReferralModal({ visible, caseId, onClose, onSuccess }: ReferralM
     }
   }, [visible]);
 
+  useEffect(() => {
+    if (visible && targetType === 'officer' && officers.length === 0) {
+      setFetchingOfficers(true);
+      getActiveOfficers()
+        .then(setOfficers)
+        .catch(() => {})
+        .finally(() => setFetchingOfficers(false));
+    }
+  }, [visible, targetType]);
+
+  const submitReferral = async () => {
+    try {
+      setLoading(true);
+      const result = await createCaseReferral(
+        caseId,
+        targetType === 'officer'
+          ? { officerId: selectedOfficerId!, reason: reason.trim() }
+          : {
+              organizationId: selectedOrgId || undefined,
+              referredToText: !selectedOrgId ? customOrgText.trim() : undefined,
+              reason: reason.trim(),
+            }
+      );
+      Alert.alert('Referral Submitted', result.message || 'Case successfully referred.');
+      onSuccess(result.referral, result.reassigned);
+      onClose();
+      setReason('');
+      setCustomOrgText('');
+      setSelectedOfficerId(null);
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Unable to submit referral.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!reason.trim() || reason.trim().length < 3) {
       Alert.alert('Validation Error', 'Please enter a referral reason (at least 3 characters).');
+      return;
+    }
+
+    if (targetType === 'officer') {
+      if (!selectedOfficerId) {
+        Alert.alert('Validation Error', 'Please select the officer to refer this case to.');
+        return;
+      }
+      // Handing over removes this officer's access, so confirm first
+      Alert.alert(
+        'Hand Over Case?',
+        'The case will be reassigned to the selected officer and you will no longer be able to modify it.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Refer & Reassign', style: 'destructive', onPress: submitReferral },
+        ]
+      );
       return;
     }
 
@@ -62,23 +122,7 @@ export function ReferralModal({ visible, caseId, onClose, onSuccess }: ReferralM
       return;
     }
 
-    try {
-      setLoading(true);
-      const result = await createCaseReferral(caseId, {
-        organizationId: selectedOrgId || undefined,
-        referredToText: !selectedOrgId ? customOrgText.trim() : undefined,
-        reason: reason.trim(),
-      });
-      Alert.alert('Referral Submitted', result.message || 'Case successfully referred.');
-      onSuccess(result.referral);
-      onClose();
-      setReason('');
-      setCustomOrgText('');
-    } catch (err: any) {
-      Alert.alert('Error', err.message || 'Unable to submit referral.');
-    } finally {
-      setLoading(false);
-    }
+    await submitReferral();
   };
 
   return (
@@ -101,6 +145,59 @@ export function ReferralModal({ visible, caseId, onClose, onSuccess }: ReferralM
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <Text color="textSecondary" variant="caption">
+              REFER TO
+            </Text>
+            <View style={styles.chipRow}>
+              <FilterChip
+                label="Organization / Department"
+                onPress={() => setTargetType('organization')}
+                selected={targetType === 'organization'}
+              />
+              <FilterChip
+                label="Another Officer"
+                onPress={() => setTargetType('officer')}
+                selected={targetType === 'officer'}
+              />
+            </View>
+
+            {targetType === 'officer' ? (
+              <View style={styles.orgList}>
+                {officers.length > 0 ? (
+                  officers.map((officer) => {
+                    const isSelected = selectedOfficerId === officer.id;
+                    return (
+                      <Pressable
+                        key={officer.id}
+                        onPress={() => setSelectedOfficerId(officer.id)}
+                        style={[
+                          styles.orgItem,
+                          {
+                            backgroundColor: isSelected ? colors.primarySoft : colors.surface,
+                            borderColor: isSelected ? colors.primary : colors.border,
+                          },
+                        ]}
+                      >
+                        <View style={styles.orgInfo}>
+                          <Text style={{ fontWeight: isSelected ? '700' : '500' }} variant="body">
+                            {officer.name || officer.email}
+                          </Text>
+                          <Text color="textTertiary" variant="caption">
+                            {officer.email}
+                          </Text>
+                        </View>
+                        {isSelected ? <Ionicons color={colors.primary} name="checkmark-circle" size={20} /> : null}
+                      </Pressable>
+                    );
+                  })
+                ) : (
+                  <Text color="textTertiary" variant="caption">
+                    {fetchingOfficers ? 'Loading officers...' : 'No other active officers found.'}
+                  </Text>
+                )}
+              </View>
+            ) : (
+            <>
             <Text color="textSecondary" variant="caption">
               SELECT REGISTERED LEGAL ORGANIZATION
             </Text>
@@ -166,6 +263,8 @@ export function ReferralModal({ visible, caseId, onClose, onSuccess }: ReferralM
               ]}
               value={customOrgText}
             />
+            </>
+            )}
 
             <Text color="textSecondary" style={styles.sectionMargin} variant="caption">
               REASON FOR REFERRAL *
@@ -234,6 +333,12 @@ const styles = StyleSheet.create({
   },
   orgList: {
     gap: Spacing.xs,
+  },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    marginBottom: Spacing.xs,
   },
   orgItem: {
     padding: Spacing.md,

@@ -10,7 +10,24 @@ export type CaseActionType =
   | 'INFO_REQUESTED'
   | 'REFERRED'
   | 'CLOSED'
-  | 'ESCALATED';
+  | 'ESCALATED'
+  | ManualCaseActionType;
+
+/** Action types an officer can record manually in the case log */
+export type ManualCaseActionType =
+  | 'CONTACTED_USER'
+  | 'CONTACTED_AUTHORITY'
+  | 'FIELD_VISIT'
+  | 'EVIDENCE_REVIEWED'
+  | 'MEETING_HELD'
+  | 'OTHER_ACTION';
+
+export type CloseOutcome =
+  | 'RESOLVED_FOR_USER'
+  | 'REFERRED_EXTERNALLY'
+  | 'INSUFFICIENT_EVIDENCE'
+  | 'WITHDRAWN'
+  | 'OTHER';
 
 export type InfoRequestStatus = 'PENDING' | 'RESOLVED';
 
@@ -21,6 +38,24 @@ export interface DashboardStats {
   waitingForUser: number;
   investigating: number;
   recentlyUpdated: number;
+  closed?: number;
+  recentCases?: DashboardRecentCase[];
+}
+
+export interface DashboardRecentCase {
+  id: number;
+  description: string;
+  category: string;
+  status: OfficerCaseStatus;
+  priority: CasePriority;
+  updatedAt: string;
+  trackingCode: { code: string } | null;
+}
+
+export interface OfficerSummary {
+  id: number;
+  name: string | null;
+  email: string;
 }
 
 export interface CaseOfficerUser {
@@ -280,8 +315,8 @@ export function createCaseInfoRequest(
  */
 export function createCaseReferral(
   caseId: number | string,
-  payload: { organizationId?: number; referredToText?: string; reason: string }
-): Promise<{ message: string; referral: CaseReferralItem }> {
+  payload: { organizationId?: number; officerId?: number; referredToText?: string; reason: string }
+): Promise<{ message: string; referral: CaseReferralItem; reassigned?: boolean }> {
   return request(`/api/officer/cases/${encodeURIComponent(caseId)}/referrals`, {
     method: 'POST',
     body: JSON.stringify(payload),
@@ -313,11 +348,12 @@ export function getCaseActions(caseId: number | string): Promise<CaseActionItem[
  */
 export function closeCase(
   caseId: number | string,
-  reason?: string
+  payload?: string | { reason: string; outcome?: CloseOutcome }
 ): Promise<{ message: string; case: OfficerCaseDetail; statusHistory: CaseStatusHistoryItem; action: CaseActionItem }> {
+  const body = typeof payload === 'string' || payload === undefined ? { reason: payload } : payload;
   return request(`/api/officer/cases/${encodeURIComponent(caseId)}/close`, {
     method: 'POST',
-    body: JSON.stringify({ reason }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -339,4 +375,11 @@ export function escalateCase(
  */
 export function getLegalOrganizations(): Promise<LegalOrganizationItem[]> {
   return request<LegalOrganizationItem[]>('/api/officer/organizations');
+}
+
+/**
+ * Fetch other active officers for referral-to-officer selection
+ */
+export function getActiveOfficers(): Promise<OfficerSummary[]> {
+  return request<OfficerSummary[]>('/api/officer/officers');
 }

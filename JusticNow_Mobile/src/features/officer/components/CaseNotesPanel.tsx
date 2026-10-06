@@ -12,9 +12,11 @@ interface CaseNotesPanelProps {
   caseId: number;
   initialNotes: CaseNote[];
   onNoteAdded?: (newNote: CaseNote) => void;
+  /** When false the add-note form is hidden (e.g. case not assigned to this officer) */
+  canAdd?: boolean;
 }
 
-export function CaseNotesPanel({ caseId, initialNotes, onNoteAdded }: CaseNotesPanelProps) {
+export function CaseNotesPanel({ caseId, initialNotes, onNoteAdded, canAdd = true }: CaseNotesPanelProps) {
   const colors = useColors();
   const [notes, setNotes] = useState<CaseNote[]>(initialNotes || []);
   const [newContent, setNewContent] = useState('');
@@ -42,6 +44,7 @@ export function CaseNotesPanel({ caseId, initialNotes, onNoteAdded }: CaseNotesP
   return (
     <View style={styles.container}>
       {/* Add note card */}
+      {canAdd && (
       <Card bordered style={styles.inputCard}>
         <View style={styles.inputHeader}>
           <Ionicons color={colors.primary} name="lock-closed" size={16} />
@@ -79,6 +82,7 @@ export function CaseNotesPanel({ caseId, initialNotes, onNoteAdded }: CaseNotesP
           />
         </View>
       </Card>
+      )}
 
       {/* Notes list */}
       <View style={styles.notesList}>
