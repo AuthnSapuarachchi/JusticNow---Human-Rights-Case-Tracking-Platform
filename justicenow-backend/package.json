@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "nodemon",
     "seed:chat": "node scripts/seed-chat-case.js",
+    "seed:admin": "node scripts/seed-admin.js",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

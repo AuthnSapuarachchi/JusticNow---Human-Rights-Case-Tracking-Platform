@@ -53,12 +53,13 @@ enum ViolationCategory {
 
 // --- 1. ADMINISTRATIVE TABLES ---
 model User {
-  id       Int     @id @default(autoincrement())
-  email    String  @unique
-  password String
-  name     String?
-  role     Role    @default(OFFICER)
-
+  id             Int                @id @default(autoincrement())
+  email          String             @unique
+  password       String
+  name           String?
+  role           Role               @default(OFFICER)
+  isActive       Boolean            @default(true)
+  
   organizationId Int?
   organization   LegalOrganization? @relation(fields: [organizationId], references: [id])
   officerCases   Case[]             @relation("CaseOfficer")
@@ -305,4 +306,16 @@ model CaseAction {
   createdAt  DateTime       @default(now())
 
   @@map("caseaction")
+}
+
+// --- 4. ADMIN-MANAGED CONFIGURATION ---
+model ViolationCategoryConfig {
+  id          Int               @id @default(autoincrement())
+  code        ViolationCategory @unique
+  label       String
+  description String?           @db.Text
+  isActive    Boolean           @default(true)
+  updatedAt   DateTime          @updatedAt
+
+  @@map("violationcategoryconfig")
 }
