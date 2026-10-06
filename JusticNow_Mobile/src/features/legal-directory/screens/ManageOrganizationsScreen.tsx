@@ -18,6 +18,7 @@ import type { Organization } from '../types';
 
 import { ContentTextField } from '@/design-system';
 import { useManageAccess } from '@/hooks/use-manage-access';
+import { useTranslation } from '@/i18n/use-translation';
 import {
   createOrganization,
   deleteOrganization,
@@ -72,13 +73,31 @@ const splitList = (value: string) =>
     .map((entry) => entry.trim())
     .filter(Boolean);
 
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const ALLOWED_LANGUAGES = new Set(['en', 'si', 'ta']);
+const ALLOWED_CATEGORIES = new Set<Organization['categories'][number]>([
+  'legalAid',
+  'humanRights',
+  'workplaceRights',
+  'womensRights',
+  'childRights',
+  'counselling',
+  'landRights',
+]);
+
+/** Accept common Sri Lankan local and +94 formats, with optional separators. */
+const isValidSriLankanPhone = (value: string) => {
+  const compact = value.replace(/[\s().-]/g, '');
+  return /^(?:0\d{9}|\+94\d{9})$/.test(compact);
+};
+
 const toPayload = (form: FormState): Partial<OrganizationInput> => ({
   name: form.name.trim(),
   description: form.description.trim(),
   contactEmail: form.contactEmail.trim(),
   phone: form.phone.trim(),
   location: form.location.trim(),
-  distanceKm: Number(form.distanceKm) || 0,
+  distanceKm: Number(form.distanceKm),
   languages: splitList(form.languages),
   categories: splitList(form.categories) as Organization['categories'],
   isFree: form.isFree,
@@ -88,6 +107,7 @@ const toPayload = (form: FormState): Partial<OrganizationInput> => ({
 export function ManageOrganizationsScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { t } = useTranslation();
   const canManage = useManageAccess();
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -128,8 +148,40 @@ export function ManageOrganizationsScreen() {
   };
 
   const handleSave = async () => {
-    if (!form.name.trim() || !form.contactEmail.trim()) {
-      setError('Name and contact email are required.');
+    const languages = splitList(form.languages);
+    const categories = splitList(form.categories) as Organization['categories'];
+    const distanceKm = Number(form.distanceKm);
+
+    if (form.name.trim().length < 2 || form.name.trim().length > 120) {
+      setError(t('manage.validation.organizationName'));
+      return;
+    }
+    if (form.description.trim().length < 10 || form.description.trim().length > 2000) {
+      setError(t('manage.validation.organizationDescription'));
+      return;
+    }
+    if (!EMAIL_PATTERN.test(form.contactEmail.trim()) || form.contactEmail.trim().length > 254) {
+      setError(t('manage.validation.email'));
+      return;
+    }
+    if (form.phone.trim() && !isValidSriLankanPhone(form.phone.trim())) {
+      setError(t('manage.validation.phone'));
+      return;
+    }
+    if (!form.location.trim() || form.location.trim().length > 160) {
+      setError(t('manage.validation.location'));
+      return;
+    }
+    if (!Number.isFinite(distanceKm) || distanceKm < 0 || distanceKm > 10000) {
+      setError(t('manage.validation.distance'));
+      return;
+    }
+    if (!languages.length || languages.some((language) => !ALLOWED_LANGUAGES.has(language)) || new Set(languages).size !== languages.length) {
+      setError(t('manage.validation.languages'));
+      return;
+    }
+    if (!categories.length || categories.some((category) => !ALLOWED_CATEGORIES.has(category)) || new Set(categories).size !== categories.length) {
+      setError(t('manage.validation.categories'));
       return;
     }
 
