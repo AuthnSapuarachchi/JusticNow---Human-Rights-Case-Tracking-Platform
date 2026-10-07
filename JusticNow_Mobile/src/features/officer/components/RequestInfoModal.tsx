@@ -62,7 +62,7 @@ export function RequestInfoModal({ visible, caseId, onClose, onSuccess }: Reques
           </View>
 
           <Text color="textSecondary" style={styles.description} variant="body">
-            Ask the citizen for missing details, documentation, or clarification. Sending this request will automatically set the case status to WAITING FOR USER.
+            Ask the citizen for missing details, documentation, or clarification. Sending this request will automatically set the case status to WAITING FOR USER, and the citizen will receive it in their case Messages.
           </Text>
 
           <TextInput

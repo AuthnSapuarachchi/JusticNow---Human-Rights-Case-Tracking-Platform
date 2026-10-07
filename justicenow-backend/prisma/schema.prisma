@@ -37,6 +37,13 @@ enum CaseActionType {
   REFERRED
   CLOSED
   ESCALATED
+  // Manually recorded officer actions
+  CONTACTED_USER
+  CONTACTED_AUTHORITY
+  FIELD_VISIT
+  EVIDENCE_REVIEWED
+  MEETING_HELD
+  OTHER_ACTION
 }
 
 enum InfoRequestStatus {
@@ -92,13 +99,11 @@ model LegalOrganization {
 
   // EP-06 directory fields. All optional/defaulted so existing rows and the
   // officer referral flow keep working without a backfill.
-  description  String?  @db.Text
+  // (description, location and phone are declared above.)
   languages    String   @default("") // comma-separated codes: "si,ta,en"
   categories   String   @default("") // comma-separated slugs: "legalAid,humanRights"
   isFree       Boolean  @default(true)
   distanceKm   Float?   // kilometres - never miles
-  location     String?
-  phone        String?
 
   officers     User[]
   referrals    CaseReferral[]

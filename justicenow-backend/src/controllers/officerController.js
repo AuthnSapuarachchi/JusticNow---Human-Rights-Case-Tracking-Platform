@@ -9,50 +9,123 @@ const parseCaseId = (param) => {
     return caseId;
 };
 
+const ACTIVE_STATUS_FILTER = { notIn: ['CLOSED', 'RESOLVED'] };
+
+const MANUAL_ACTION_TYPES = [
+    'CONTACTED_USER',
+    'CONTACTED_AUTHORITY',
+    'FIELD_VISIT',
+    'EVIDENCE_REVIEWED',
+    'MEETING_HELD',
+    'OTHER_ACTION',
+];
+
+const CLOSE_OUTCOMES = [
+    'RESOLVED_FOR_USER',
+    'REFERRED_EXTERNALLY',
+    'INSUFFICIENT_EVIDENCE',
+    'WITHDRAWN',
+    'OTHER',
+];
+
+/**
+ * Loads a case and enforces officer ownership.
+ * - ADMIN: unrestricted
+ * - OFFICER read: cases assigned to them or still unassigned (so they can be claimed)
+ * - OFFICER write: only cases assigned to them
+ * Sends the error response itself and returns null when access is denied.
+ */
+const loadCaseForOfficer = async (req, res, caseId, mode = 'read') => {
+    const caseRecord = await prisma.case.findUnique({ where: { id: caseId } });
+    if (!caseRecord) {
+        res.status(404).json({ error: 'Case not found.' });
+        return null;
+    }
+
+    if (req.user.role === 'ADMIN') return caseRecord;
+
+    const isMine = caseRecord.officerId === req.user.id;
+    if (mode === 'write' && !isMine) {
+        res.status(403).json({ error: 'You can only modify cases assigned to you.' });
+        return null;
+    }
+    if (mode === 'read' && !isMine && caseRecord.officerId !== null) {
+        res.status(403).json({ error: 'This case is assigned to another officer.' });
+        return null;
+    }
+
+    return caseRecord;
+};
+
+// Same shape as chatController's serializer so the mobile chat renders it unchanged
+const serializeChatMessage = (message) => ({
+    id: String(message.id),
+    caseId: String(message.caseId),
+    senderId: message.senderId ? String(message.senderId) : 'system',
+    senderName: message.sender?.name || 'Case Officer',
+    senderRole: message.sender?.role || 'OFFICER',
+    recipientId: message.recipientId ? String(message.recipientId) : null,
+    content: message.content,
+    createdAt: message.createdAt.toISOString(),
+    isRead: true,
+    attachment: null,
+});
+
 /**
  * GET /api/officer/dashboard/stats
+ * All figures are scoped to cases assigned to the logged-in officer.
+ * Active = not CLOSED/RESOLVED; closed cases are excluded from active counts.
  * Returns counts for:
- * - total assigned to me
+ * - total active assigned
  * - new
  * - urgent
  * - waiting-for-user
  * - investigating
- * - recently updated (e.g. last 7 days by CaseAction)
+ * - recently updated (active, updated in last 7 days) + the latest cases list
  */
 const getDashboardStats = async (req, res) => {
     try {
         const officerId = req.user.id;
         const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const activeWhere = { officerId, status: ACTIVE_STATUS_FILTER };
 
-        const [
-            totalAssigned,
-            newCases,
-            urgent,
-            waitingForUser,
-            investigating,
-            recentActions
-        ] = await Promise.all([
-            prisma.case.count({ where: { officerId } }),
-            prisma.case.count({ where: { status: { in: ['NEW', 'SUBMITTED'] } } }),
-            prisma.case.count({ where: { priority: 'URGENT' } }),
-            prisma.case.count({ where: { status: { in: ['WAITING_FOR_USER', 'ACTION_REQUIRED'] } } }),
-            prisma.case.count({ where: { status: { in: ['INVESTIGATING', 'UNDER_REVIEW'] } } }),
-            prisma.caseAction.findMany({
-                where: { createdAt: { gte: sevenDaysAgo } },
-                select: { caseId: true },
-                distinct: ['caseId'],
+        const [statusGroups, urgent, recentlyUpdated, recentCases] = await Promise.all([
+            prisma.case.groupBy({
+                by: ['status'],
+                where: { officerId },
+                _count: { _all: true },
+            }),
+            prisma.case.count({ where: { ...activeWhere, priority: 'URGENT' } }),
+            prisma.case.count({ where: { ...activeWhere, updatedAt: { gte: sevenDaysAgo } } }),
+            prisma.case.findMany({
+                where: { officerId },
+                orderBy: { updatedAt: 'desc' },
+                take: 5,
+                include: {
+                    trackingCode: { select: { code: true } },
+                    _count: { select: { evidence: true, notes: true } },
+                },
             }),
         ]);
 
-        const recentlyUpdated = recentActions.length;
+        const byStatus = statusGroups.reduce((acc, group) => {
+            acc[group.status] = group._count._all;
+            return acc;
+        }, {});
+        const sum = (...statuses) => statuses.reduce((total, s) => total + (byStatus[s] || 0), 0);
+
+        const closed = sum('CLOSED', 'RESOLVED');
+        const totalAssigned = Object.values(byStatus).reduce((a, b) => a + b, 0) - closed;
 
         res.json({
             totalAssigned,
-            newCases,
+            newCases: sum('NEW', 'SUBMITTED'),
             urgent,
-            waitingForUser,
-            investigating,
+            waitingForUser: sum('WAITING_FOR_USER', 'ACTION_REQUIRED'),
+            investigating: sum('INVESTIGATING', 'UNDER_REVIEW'),
             recentlyUpdated,
+            closed,
+            recentCases,
         });
     } catch (error) {
         console.error('Error fetching dashboard stats:', error);
@@ -87,6 +160,9 @@ const getOfficerCases = async (req, res) => {
             where.officerId = req.user.id;
         } else if (assignedToMe === 'false' || assignedToMe === false) {
             where.officerId = null;
+        } else if (req.user.role === 'OFFICER') {
+            // Officers see their own cases plus the unassigned pool; admins see everything
+            where.AND = [{ OR: [{ officerId: req.user.id }, { officerId: null }] }];
         }
 
         if (status && status !== 'ALL') {
@@ -164,6 +240,8 @@ const getOfficerCaseDetail = async (req, res) => {
         const caseId = parseCaseId(req.params.caseId);
         if (!caseId) return res.status(400).json({ error: 'Invalid case ID.' });
 
+        if (!(await loadCaseForOfficer(req, res, caseId, 'read'))) return;
+
         const caseRecord = await prisma.case.findUnique({
             where: { id: caseId },
             include: {
@@ -230,6 +308,10 @@ const assignCase = async (req, res) => {
             return res.status(400).json({ error: 'Invalid officer ID.' });
         }
 
+        if (req.user.role === 'OFFICER' && targetOfficerId !== req.user.id) {
+            return res.status(403).json({ error: 'Officers can only assign cases to themselves.' });
+        }
+
         const targetOfficer = await prisma.user.findUnique({
             where: { id: targetOfficerId },
             select: { id: true, name: true, email: true, role: true, isActive: true },
@@ -246,6 +328,14 @@ const assignCase = async (req, res) => {
         const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
         if (!existingCase) {
             return res.status(404).json({ error: 'Case not found.' });
+        }
+
+        if (req.user.role === 'OFFICER' && existingCase.officerId !== null) {
+            return res.status(403).json({
+                error: existingCase.officerId === req.user.id
+                    ? 'This case is already assigned to you.'
+                    : 'This case is already assigned to another officer.',
+            });
         }
 
         const officerDisplayName = targetOfficer.name || targetOfficer.email;
@@ -313,10 +403,8 @@ const updateCaseStatus = async (req, res) => {
             });
         }
 
-        const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
-        if (!existingCase) {
-            return res.status(404).json({ error: 'Case not found.' });
-        }
+        const existingCase = await loadCaseForOfficer(req, res, caseId, 'write');
+        if (!existingCase) return;
 
         if (existingCase.status === newStatus) {
             return res.status(400).json({ error: 'Case is already in this status.' });
@@ -390,10 +478,8 @@ const addCaseNote = async (req, res) => {
             return res.status(400).json({ error: 'Note content of at least 2 characters is required.' });
         }
 
-        const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
-        if (!existingCase) {
-            return res.status(404).json({ error: 'Case not found.' });
-        }
+        const existingCase = await loadCaseForOfficer(req, res, caseId, 'write');
+        if (!existingCase) return;
 
         const [note, action] = await prisma.$transaction([
             prisma.caseNote.create({
@@ -435,6 +521,8 @@ const getCaseNotes = async (req, res) => {
         const caseId = parseCaseId(req.params.caseId);
         if (!caseId) return res.status(400).json({ error: 'Invalid case ID.' });
 
+        if (!(await loadCaseForOfficer(req, res, caseId, 'read'))) return;
+
         const notes = await prisma.caseNote.findMany({
             where: { caseId },
             include: {
@@ -465,12 +553,16 @@ const createInfoRequest = async (req, res) => {
             return res.status(400).json({ error: 'Information request message of at least 3 characters is required.' });
         }
 
-        const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
-        if (!existingCase) {
-            return res.status(404).json({ error: 'Case not found.' });
+        const existingCase = await loadCaseForOfficer(req, res, caseId, 'write');
+        if (!existingCase) return;
+
+        if (existingCase.status === 'CLOSED') {
+            return res.status(400).json({ error: 'Cannot request information on a closed case.' });
         }
 
-        const [infoRequest, action, updatedCase] = await prisma.$transaction([
+        const statusChanged = existingCase.status !== 'WAITING_FOR_USER';
+
+        const [infoRequest, action, updatedCase, chatMessage] = await prisma.$transaction([
             prisma.caseInfoRequest.create({
                 data: {
                     caseId,
@@ -497,7 +589,35 @@ const createInfoRequest = async (req, res) => {
                 where: { id: caseId },
                 data: { status: 'WAITING_FOR_USER' },
             }),
+            // Notify the reporter through the existing case chat
+            prisma.message.create({
+                data: {
+                    content: `Information requested by your case officer:\n${normalizedMessage}`,
+                    isFromUser: false,
+                    caseId,
+                    senderId: req.user.id,
+                    officerId: req.user.role === 'OFFICER' ? req.user.id : null,
+                    recipientId: existingCase.reporterId,
+                },
+                include: { sender: true },
+            }),
+            ...(statusChanged
+                ? [
+                    prisma.caseStatusHistory.create({
+                        data: {
+                            caseId,
+                            fromStatus: existingCase.status,
+                            toStatus: 'WAITING_FOR_USER',
+                            changedById: req.user.id,
+                            note: 'Information requested from user',
+                        },
+                    }),
+                ]
+                : []),
         ]);
+
+        const io = req.app.get('io');
+        if (io) io.to(`case:${caseId}`).emit('chat:message', serializeChatMessage(chatMessage));
 
         res.status(201).json({
             message: 'Information request created and case status moved to WAITING_FOR_USER.',
@@ -520,28 +640,57 @@ const createReferral = async (req, res) => {
         const caseId = parseCaseId(req.params.caseId);
         if (!caseId) return res.status(400).json({ error: 'Invalid case ID.' });
 
-        const { organizationId, referredToText, reason } = req.body;
+        const { organizationId, officerId, referredToText, reason } = req.body;
         const normalizedReason = reason?.trim();
         if (!normalizedReason || normalizedReason.length < 3) {
             return res.status(400).json({ error: 'Referral reason of at least 3 characters is required.' });
         }
 
         const orgIdNum = organizationId ? Number(organizationId) : null;
+        const officerIdNum = officerId ? Number(officerId) : null;
         const normalizedText = referredToText?.trim() || null;
 
-        if (!orgIdNum && !normalizedText) {
-            return res.status(400).json({ error: 'Either an organization ID or referral organization name is required.' });
+        if (!orgIdNum && !officerIdNum && !normalizedText) {
+            return res.status(400).json({
+                error: 'An organization ID, officer ID, or referral recipient name is required.',
+            });
         }
 
-        const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
-        if (!existingCase) {
-            return res.status(404).json({ error: 'Case not found.' });
+        if (orgIdNum !== null && (!Number.isInteger(orgIdNum) || orgIdNum < 1)) {
+            return res.status(400).json({ error: 'Invalid organization ID.' });
+        }
+        if (officerIdNum !== null && (!Number.isInteger(officerIdNum) || officerIdNum < 1)) {
+            return res.status(400).json({ error: 'Invalid officer ID.' });
+        }
+
+        const existingCase = await loadCaseForOfficer(req, res, caseId, 'write');
+        if (!existingCase) return;
+
+        if (existingCase.status === 'CLOSED') {
+            return res.status(400).json({ error: 'Cannot refer a closed case.' });
         }
 
         let orgName = normalizedText;
         if (orgIdNum) {
             const org = await prisma.legalOrganization.findUnique({ where: { id: orgIdNum } });
-            if (org) orgName = org.name;
+            if (!org) return res.status(400).json({ error: 'Organization not found.' });
+            orgName = org.name;
+        }
+
+        // Referral to another officer hands the case over to them
+        let targetOfficer = null;
+        if (officerIdNum) {
+            if (officerIdNum === existingCase.officerId) {
+                return res.status(400).json({ error: 'Case is already assigned to this officer.' });
+            }
+            targetOfficer = await prisma.user.findUnique({
+                where: { id: officerIdNum },
+                select: { id: true, name: true, email: true, role: true, isActive: true },
+            });
+            if (!targetOfficer || targetOfficer.role !== 'OFFICER' || targetOfficer.isActive === false) {
+                return res.status(400).json({ error: 'Target user is not an active officer.' });
+            }
+            orgName = `Officer: ${targetOfficer.name || targetOfficer.email}`;
         }
 
         const [referral, action] = await prisma.$transaction([
@@ -569,12 +718,34 @@ const createReferral = async (req, res) => {
                     actor: { select: { id: true, name: true, email: true } },
                 },
             }),
+            prisma.case.update({
+                where: { id: caseId },
+                data: targetOfficer ? { officerId: targetOfficer.id } : { updatedAt: new Date() },
+            }),
+            ...(targetOfficer
+                ? [
+                    prisma.caseAction.create({
+                        data: {
+                            caseId,
+                            actorId: req.user.id,
+                            actionType: 'ASSIGNED',
+                            detail: JSON.stringify({
+                                assignedOfficerId: targetOfficer.id,
+                                assignedOfficerName: targetOfficer.name || targetOfficer.email,
+                            }),
+                        },
+                    }),
+                ]
+                : []),
         ]);
 
         res.status(201).json({
-            message: 'Referral recorded successfully.',
+            message: targetOfficer
+                ? `Referral recorded and case reassigned to ${targetOfficer.name || targetOfficer.email}.`
+                : 'Referral recorded successfully.',
             referral,
             action,
+            reassigned: Boolean(targetOfficer),
         });
     } catch (error) {
         console.error('Error creating case referral:', error);
@@ -593,8 +764,8 @@ const createCaseAction = async (req, res) => {
 
         const { actionType, detail } = req.body;
         const normalizedDetail = detail?.trim();
-        if (!normalizedDetail) {
-            return res.status(400).json({ error: 'Action detail is required.' });
+        if (!normalizedDetail || normalizedDetail.length < 3) {
+            return res.status(400).json({ error: 'Action detail of at least 3 characters is required.' });
         }
 
         const validActionTypes = [
@@ -605,26 +776,34 @@ const createCaseAction = async (req, res) => {
             'REFERRED',
             'CLOSED',
             'ESCALATED',
+            ...MANUAL_ACTION_TYPES,
         ];
 
-        const resolvedType = validActionTypes.includes(actionType) ? actionType : 'NOTE_ADDED';
-
-        const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
-        if (!existingCase) {
-            return res.status(404).json({ error: 'Case not found.' });
+        if (actionType && !validActionTypes.includes(actionType)) {
+            return res.status(400).json({
+                error: `Invalid action type. Valid values: ${validActionTypes.join(', ')}`,
+            });
         }
 
-        const action = await prisma.caseAction.create({
-            data: {
-                caseId,
-                actorId: req.user.id,
-                actionType: resolvedType,
-                detail: normalizedDetail,
-            },
-            include: {
-                actor: { select: { id: true, name: true, email: true, role: true } },
-            },
-        });
+        const resolvedType = actionType || 'OTHER_ACTION';
+
+        const existingCase = await loadCaseForOfficer(req, res, caseId, 'write');
+        if (!existingCase) return;
+
+        const [action] = await prisma.$transaction([
+            prisma.caseAction.create({
+                data: {
+                    caseId,
+                    actorId: req.user.id,
+                    actionType: resolvedType,
+                    detail: normalizedDetail,
+                },
+                include: {
+                    actor: { select: { id: true, name: true, email: true, role: true } },
+                },
+            }),
+            prisma.case.update({ where: { id: caseId }, data: { updatedAt: new Date() } }),
+        ]);
 
         res.status(201).json(action);
     } catch (error) {
@@ -641,6 +820,8 @@ const getCaseActions = async (req, res) => {
     try {
         const caseId = parseCaseId(req.params.caseId);
         if (!caseId) return res.status(400).json({ error: 'Invalid case ID.' });
+
+        if (!(await loadCaseForOfficer(req, res, caseId, 'read'))) return;
 
         const actions = await prisma.caseAction.findMany({
             where: { caseId },
@@ -666,13 +847,21 @@ const closeCase = async (req, res) => {
         const caseId = parseCaseId(req.params.caseId);
         if (!caseId) return res.status(400).json({ error: 'Invalid case ID.' });
 
-        const { reason, note } = req.body;
-        const closeReason = reason?.trim() || note?.trim() || 'Case closed by officer';
-
-        const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
-        if (!existingCase) {
-            return res.status(404).json({ error: 'Case not found.' });
+        const { reason, note, outcome } = req.body;
+        const closeReason = reason?.trim() || note?.trim();
+        if (!closeReason || closeReason.length < 3) {
+            return res.status(400).json({ error: 'A closing reason of at least 3 characters is required.' });
         }
+
+        if (outcome && !CLOSE_OUTCOMES.includes(outcome)) {
+            return res.status(400).json({
+                error: `Invalid outcome. Valid values: ${CLOSE_OUTCOMES.join(', ')}`,
+            });
+        }
+        const resolvedOutcome = outcome || 'OTHER';
+
+        const existingCase = await loadCaseForOfficer(req, res, caseId, 'write');
+        if (!existingCase) return;
 
         if (existingCase.status === 'CLOSED') {
             return res.status(400).json({ error: 'Case is already closed.' });
@@ -695,7 +884,7 @@ const closeCase = async (req, res) => {
                     fromStatus,
                     toStatus: 'CLOSED',
                     changedById: req.user.id,
-                    note: closeReason,
+                    note: `[${resolvedOutcome}] ${closeReason}`,
                 },
                 include: {
                     changedBy: { select: { id: true, name: true, email: true, role: true } },
@@ -706,7 +895,7 @@ const closeCase = async (req, res) => {
                     caseId,
                     actorId: req.user.id,
                     actionType: 'CLOSED',
-                    detail: closeReason,
+                    detail: JSON.stringify({ outcome: resolvedOutcome, reason: closeReason }),
                 },
                 include: {
                     actor: { select: { id: true, name: true, email: true } },
@@ -738,10 +927,8 @@ const escalateCase = async (req, res) => {
         const { reason } = req.body;
         const escalateReason = reason?.trim() || 'Case escalated to urgent by officer';
 
-        const existingCase = await prisma.case.findUnique({ where: { id: caseId } });
-        if (!existingCase) {
-            return res.status(404).json({ error: 'Case not found.' });
-        }
+        const existingCase = await loadCaseForOfficer(req, res, caseId, 'write');
+        if (!existingCase) return;
 
         const [updatedCase, action] = await prisma.$transaction([
             prisma.case.update({
@@ -796,6 +983,24 @@ const getOrganizations = async (req, res) => {
     }
 };
 
+/**
+ * GET /api/officer/officers
+ * Helper for referral-to-officer picker: lists active officers (excluding the caller)
+ */
+const getActiveOfficers = async (req, res) => {
+    try {
+        const officers = await prisma.user.findMany({
+            where: { role: 'OFFICER', isActive: true, id: { not: req.user.id } },
+            select: { id: true, name: true, email: true },
+            orderBy: { name: 'asc' },
+        });
+        res.json(officers);
+    } catch (error) {
+        console.error('Error loading officers:', error);
+        res.status(500).json({ error: 'Unable to load officers.' });
+    }
+};
+
 module.exports = {
     getDashboardStats,
     getOfficerCases,
@@ -811,4 +1016,5 @@ module.exports = {
     closeCase,
     escalateCase,
     getOrganizations,
+    getActiveOfficers,
 };
