@@ -23,6 +23,7 @@ dotenv.config();
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' } });
+app.set('io', io); // lets controllers emit socket events (e.g. officer info requests)
 
 // Middlewares
 app.use(cors());

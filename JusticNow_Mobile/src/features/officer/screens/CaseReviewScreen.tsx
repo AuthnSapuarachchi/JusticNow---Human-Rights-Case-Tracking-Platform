@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -17,6 +17,7 @@ import {
   getOfficerCase,
   OfficerCaseDetail,
 } from '@/api/officerApi';
+import { useAuth } from '@/context/AuthContext';
 import { Badge, Button, Card, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
@@ -42,6 +43,7 @@ interface CaseReviewScreenProps {
 export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) {
   const colors = useColors();
   const router = useRouter();
+  const { session } = useAuth();
   const params = useLocalSearchParams<{ id?: string; caseId?: string }>();
   const activeCaseId = propCaseId || params.id || params.caseId;
 
@@ -86,13 +88,36 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
     fetchCaseDetail();
   }, [fetchCaseDetail]);
 
+  const silentRefresh = useCallback(() => {
+    if (!activeCaseId) return;
+    getOfficerCase(activeCaseId)
+      .then(setCaseDetail)
+      .catch(() => {});
+  }, [activeCaseId]);
+
+  // Mutation responses only carry the core case fields, so merge them in and
+  // refetch to pull the updated timeline/history
+  const applyCaseUpdate = (updatedCase: Partial<OfficerCaseDetail>) => {
+    setCaseDetail((prev) => (prev ? { ...prev, ...updatedCase } : prev));
+    silentRefresh();
+  };
+
+  // Silently refetch when returning from the Update Status screen
+  const hasFocusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocusedOnce.current) silentRefresh();
+      hasFocusedOnce.current = true;
+    }, [silentRefresh])
+  );
+
   const handleAssignToMe = async () => {
     if (!caseDetail) return;
     try {
       setAssigning(true);
       const res = await assignCase(caseDetail.id);
       Alert.alert('Case Assigned', res.message || 'Case assigned to you successfully.');
-      setCaseDetail(res.case);
+      applyCaseUpdate(res.case);
     } catch (err: any) {
       Alert.alert('Assignment Failed', err?.message || 'Unable to assign case.');
     } finally {
@@ -125,6 +150,12 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
 
   const statusConfig = getOfficerStatusConfig(caseDetail.status);
   const isUrgent = caseDetail.priority === 'URGENT';
+  const isClosed = caseDetail.status === 'CLOSED';
+  // Mirrors the backend rule: officers may only modify cases assigned to them
+  const canModify =
+    session?.user.role === 'ADMIN' ||
+    (caseDetail.officerId !== null && Number(caseDetail.officerId) === Number(session?.user.id));
+  const canAct = canModify && !isClosed;
 
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: colors.canvas }]}>
@@ -285,13 +316,35 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
               />
             )}
 
-            <Button
-              icon="sync-outline"
-              label="Update Status"
-              onPress={() => router.push(`/officer/${caseDetail.id}/status` as any)}
-              variant="primary"
-            />
+            {canModify && (
+              <Button
+                icon="sync-outline"
+                label="Update Status"
+                onPress={() => router.push(`/officer/${caseDetail.id}/status` as any)}
+                variant="primary"
+              />
+            )}
           </View>
+
+          {!canModify && (
+            <View style={[styles.readOnlyNotice, { backgroundColor: colors.surfaceMuted }]}>
+              <Ionicons color={colors.textSecondary} name="information-circle-outline" size={18} />
+              <Text color="textSecondary" style={styles.readOnlyText} variant="caption">
+                {caseDetail.officer
+                  ? 'This case is assigned to another officer. You can view it but not modify it.'
+                  : 'Assign this case to yourself to update status, add notes, request info, refer, or close it.'}
+              </Text>
+            </View>
+          )}
+
+          {isClosed && (
+            <View style={[styles.readOnlyNotice, { backgroundColor: colors.surfaceMuted }]}>
+              <Ionicons color={colors.textSecondary} name="lock-closed-outline" size={18} />
+              <Text color="textSecondary" style={styles.readOnlyText} variant="caption">
+                This case is closed. You can still add internal notes or reopen it via Update Status.
+              </Text>
+            </View>
+          )}
         </Card>
 
         {/* Section Tabs Header */}
@@ -383,7 +436,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 }}
                 variant="caption"
               >
-                AUDIT LOG ({caseDetail.actions?.length || 0})
+                TIMELINE ({caseDetail.actions?.length || 0})
               </Text>
             </Pressable>
           </ScrollView>
@@ -397,6 +450,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
 
           {activeTab === 'notes' && (
             <CaseNotesPanel
+              canAdd={canModify}
               caseId={caseDetail.id}
               initialNotes={caseDetail.notes || []}
               onNoteAdded={(newNote) => {
@@ -411,12 +465,14 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 <Text color="textSecondary" variant="caption">
                   COMMUNICATIONS & REQUESTS TO CITIZEN
                 </Text>
-                <Button
-                  icon="help-circle-outline"
-                  label="Request Info"
-                  onPress={() => setShowInfoModal(true)}
-                  variant="secondary"
-                />
+                {canAct && (
+                  <Button
+                    icon="help-circle-outline"
+                    label="Request Info"
+                    onPress={() => setShowInfoModal(true)}
+                    variant="secondary"
+                  />
+                )}
               </View>
 
               {(!caseDetail.infoRequests || caseDetail.infoRequests.length === 0) ? (
@@ -454,12 +510,14 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 <Text color="textSecondary" variant="caption">
                   LEGAL ORGANIZATIONS & EXTERNAL COUNSEL
                 </Text>
-                <Button
-                  icon="business-outline"
-                  label="New Referral"
-                  onPress={() => setShowReferralModal(true)}
-                  variant="secondary"
-                />
+                {canAct && (
+                  <Button
+                    icon="business-outline"
+                    label="New Referral"
+                    onPress={() => setShowReferralModal(true)}
+                    variant="secondary"
+                  />
+                )}
               </View>
 
               {(!caseDetail.referrals || caseDetail.referrals.length === 0) ? (
@@ -499,6 +557,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
 
           {activeTab === 'actions' && (
             <ActionHistoryFeed
+              canRecord={canModify}
               caseId={caseDetail.id}
               initialActions={caseDetail.actions || []}
               onActionCreated={(newAction) => {
@@ -511,6 +570,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
         </View>
 
         {/* Case Administration Footer Operations */}
+        {canAct && (
         <Card bordered style={styles.adminFooterCard}>
           <Text style={{ fontWeight: '700' }} variant="caption">CASE SUPERVISION & REMEDIES</Text>
           <View style={styles.adminButtonsRow}>
@@ -532,6 +592,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
             )}
           </View>
         </Card>
+        )}
       </ScrollView>
 
       {/* Modals */}
@@ -548,6 +609,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 }
               : null
           );
+          silentRefresh();
         }}
         visible={showInfoModal}
       />
@@ -555,10 +617,16 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
       <ReferralModal
         caseId={caseDetail.id}
         onClose={() => setShowReferralModal(false)}
-        onSuccess={(newReferral) => {
+        onSuccess={(newReferral, reassigned) => {
+          if (reassigned && session?.user.role !== 'ADMIN') {
+            // Case was handed to another officer, so this officer can no longer act on it
+            router.replace('/officer' as any);
+            return;
+          }
           setCaseDetail((prev) =>
             prev ? { ...prev, referrals: [newReferral, ...(prev.referrals || [])] } : null
           );
+          silentRefresh();
         }}
         visible={showReferralModal}
       />
@@ -566,18 +634,14 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
       <CloseCaseModal
         caseId={caseDetail.id}
         onClose={() => setShowCloseModal(false)}
-        onSuccess={(updatedCase) => {
-          setCaseDetail(updatedCase);
-        }}
+        onSuccess={applyCaseUpdate}
         visible={showCloseModal}
       />
 
       <EscalateConfirmModal
         caseId={caseDetail.id}
         onClose={() => setShowEscalateModal(false)}
-        onSuccess={(updatedCase) => {
-          setCaseDetail(updatedCase);
-        }}
+        onSuccess={applyCaseUpdate}
         visible={showEscalateModal}
       />
     </SafeAreaView>
@@ -768,5 +832,15 @@ const styles = StyleSheet.create({
   adminButtonsRow: {
     flexDirection: 'row',
     gap: Spacing.sm,
+  },
+  readOnlyNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+  },
+  readOnlyText: {
+    flex: 1,
   },
 });

@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -17,6 +17,7 @@ import { useAuth } from '@/context/AuthContext';
 import { Badge, Button, Card, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
+import { formatCaseDate, getOfficerStatusConfig } from '@/features/cases/statusUtils';
 
 export function OfficerDashboardScreen() {
   const colors = useColors();
@@ -47,6 +48,19 @@ export function OfficerDashboardScreen() {
   useEffect(() => {
     loadStats();
   }, [loadStats]);
+
+  // Refresh silently when returning from a case so counts reflect recent changes
+  const hasFocusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocusedOnce.current) {
+        getDashboardStats()
+          .then(setStats)
+          .catch(() => {});
+      }
+      hasFocusedOnce.current = true;
+    }, [])
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -84,7 +98,7 @@ export function OfficerDashboardScreen() {
       icon: 'sparkles-outline' as const,
       color: '#28725b',
       bg: '#e2f2ed',
-      params: { status: 'NEW,SUBMITTED' },
+      params: { assignedToMe: 'true', status: 'NEW,SUBMITTED' },
     },
     {
       id: 'urgent',
@@ -93,7 +107,7 @@ export function OfficerDashboardScreen() {
       icon: 'flame-outline' as const,
       color: '#d04f28',
       bg: '#fcebe7',
-      params: { priority: 'URGENT' },
+      params: { assignedToMe: 'true', priority: 'URGENT' },
     },
     {
       id: 'waiting',
@@ -102,7 +116,7 @@ export function OfficerDashboardScreen() {
       icon: 'time-outline' as const,
       color: '#b96925',
       bg: '#fff0df',
-      params: { status: 'WAITING_FOR_USER,ACTION_REQUIRED' },
+      params: { assignedToMe: 'true', status: 'WAITING_FOR_USER,ACTION_REQUIRED' },
     },
     {
       id: 'investigating',
@@ -111,7 +125,7 @@ export function OfficerDashboardScreen() {
       icon: 'search-outline' as const,
       color: '#5b3fc7',
       bg: '#efeafd',
-      params: { status: 'INVESTIGATING,UNDER_REVIEW' },
+      params: { assignedToMe: 'true', status: 'INVESTIGATING,UNDER_REVIEW' },
     },
     {
       id: 'recent',
@@ -120,7 +134,7 @@ export function OfficerDashboardScreen() {
       icon: 'sync-outline' as const,
       color: '#3178c6',
       bg: '#e8f0fe',
-      params: { sortBy: 'updatedAt', sortOrder: 'desc' },
+      params: { assignedToMe: 'true', sortBy: 'updatedAt', sortOrder: 'desc' },
     },
   ];
 
@@ -240,6 +254,62 @@ export function OfficerDashboardScreen() {
               </Pressable>
             ))}
           </View>
+        )}
+
+        {/* Recently Updated Cases */}
+        {stats && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle} variant="heading">
+                Recently Updated
+              </Text>
+              <Text color="textSecondary" variant="caption">
+                Your latest assigned cases by last activity
+              </Text>
+            </View>
+
+            {!stats.recentCases || stats.recentCases.length === 0 ? (
+              <Card style={[styles.emptyRecent, { backgroundColor: colors.surfaceMuted }]}>
+                <Ionicons color={colors.textTertiary} name="file-tray-outline" size={28} />
+                <Text color="textSecondary" style={styles.centerText} variant="body">
+                  No cases are assigned to you yet. Pick one up from the case queue.
+                </Text>
+              </Card>
+            ) : (
+              <View style={styles.recentList}>
+                {stats.recentCases.map((item) => {
+                  const cfg = getOfficerStatusConfig(item.status);
+                  return (
+                    <Pressable
+                      accessibilityLabel={`Open case ${item.trackingCode?.code || item.id}`}
+                      accessibilityRole="button"
+                      key={item.id}
+                      onPress={() => router.push(`/officer/${item.id}` as any)}
+                      style={({ pressed }) => [pressed && styles.pressed]}
+                    >
+                      <Card bordered style={styles.recentCard}>
+                        <View style={styles.recentTopRow}>
+                          <Text variant="bodyStrong">{item.trackingCode?.code || `CASE-${item.id}`}</Text>
+                          <View style={styles.recentBadges}>
+                            {item.priority === 'URGENT' && <Badge label="Urgent" tone="danger" />}
+                            <View style={[styles.recentStatus, { backgroundColor: cfg.background }]}>
+                              <Text style={[styles.recentStatusText, { color: cfg.color }]}>{cfg.label}</Text>
+                            </View>
+                          </View>
+                        </View>
+                        <Text color="textSecondary" numberOfLines={2} variant="caption">
+                          {item.description}
+                        </Text>
+                        <Text color="textTertiary" variant="caption">
+                          Updated {formatCaseDate(item.updatedAt)}
+                        </Text>
+                      </Card>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
 
         {/* Quick Actions */}
@@ -452,5 +522,39 @@ const styles = StyleSheet.create({
   },
   signOutWrapper: {
     marginTop: Spacing.lg,
+  },
+  recentList: {
+    gap: Spacing.sm,
+  },
+  recentCard: {
+    padding: Spacing.md,
+    gap: 4,
+  },
+  recentTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recentBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  recentStatus: {
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  recentStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyRecent: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  centerText: {
+    textAlign: 'center',
   },
 });
