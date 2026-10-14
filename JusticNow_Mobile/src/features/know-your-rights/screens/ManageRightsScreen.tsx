@@ -1,3 +1,4 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, View } from 'react-native';
@@ -16,6 +17,7 @@ import {
 
 import { ContentTextField } from '@/design-system';
 import { useManageAccess } from '@/hooks/use-manage-access';
+import { useTranslation } from '@/i18n/use-translation';
 import {
   createFaq,
   createProtection,
@@ -52,6 +54,9 @@ const EMPTY_CATEGORY: CategoryForm = {
   order: '0',
 };
 
+const STABLE_ID_PATTERN = /^[A-Za-z][A-Za-z0-9_-]{0,63}$/;
+const isValidOrder = (value: string) => /^\d+$/.test(value) && Number.isSafeInteger(Number(value));
+
 const toCategoryForm = (category: ManagedRightsCategory): CategoryForm => ({
   categoryId: category.categoryId,
   icon: category.icon,
@@ -65,6 +70,7 @@ const toCategoryForm = (category: ManagedRightsCategory): CategoryForm => ({
 export function ManageRightsScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { t } = useTranslation();
   const canManage = useManageAccess();
 
   const [categories, setCategories] = useState<ManagedRightsCategory[]>([]);
@@ -98,14 +104,16 @@ export function ManageRightsScreen() {
   }, [canManage, load]);
 
   // Every mutation follows the same shape: run it, surface failures, reload.
-  const run = async (action: () => Promise<unknown>) => {
+  const run = async (action: () => Promise<unknown>): Promise<boolean> => {
     setIsSaving(true);
     try {
       setError('');
       await action();
       await load();
+      return true;
     } catch (actionError) {
       setError(actionError instanceof Error ? actionError.message : 'That action failed.');
+      return false;
     } finally {
       setIsSaving(false);
     }
@@ -114,24 +122,52 @@ export function ManageRightsScreen() {
   const setCategoryField = (key: keyof CategoryForm, value: string) =>
     setCategoryForm((current) => ({ ...current, [key]: value }));
 
-  const categoryPayload = (form: CategoryForm) => ({
-    categoryId: form.categoryId.trim(),
+  const categoryPayload = (form: CategoryForm, includeStableId = true) => ({
+    ...(includeStableId ? { categoryId: form.categoryId.trim() } : {}),
     icon: form.icon.trim(),
     title: form.title.trim(),
     description: form.description,
     intro: form.intro,
     sources: form.sources,
-    order: Number(form.order) || 0,
+    order: Number(form.order),
   });
 
   const handleSaveCategory = async (existing?: ManagedRightsCategory) => {
-    if (!categoryForm.categoryId.trim() || !categoryForm.title.trim()) {
-      setError('A category id and title are required.');
+    if (!STABLE_ID_PATTERN.test(categoryForm.categoryId.trim())) {
+      setError(t('manage.validation.categoryId'));
+      return;
+    }
+    if (!existing && categories.some((category) => category.locale === 'en' && category.categoryId === categoryForm.categoryId.trim())) {
+      setError(t('manage.validation.categoryIdDuplicate'));
+      return;
+    }
+    if (categoryForm.title.trim().length < 2 || categoryForm.title.trim().length > 160) {
+      setError(t('manage.validation.categoryTitle'));
+      return;
+    }
+    if (!categoryForm.description.trim() || categoryForm.description.trim().length > 1000) {
+      setError(t('manage.validation.categoryDescription'));
+      return;
+    }
+    if (!categoryForm.intro.trim() || categoryForm.intro.trim().length > 5000) {
+      setError(t('manage.validation.categoryIntro'));
+      return;
+    }
+    if (!categoryForm.sources.trim() || categoryForm.sources.trim().length > 5000) {
+      setError(t('manage.validation.categorySources'));
+      return;
+    }
+    if (!isValidOrder(categoryForm.order)) {
+      setError(t('manage.validation.order'));
+      return;
+    }
+    if (!(categoryForm.icon.trim() in Ionicons.glyphMap)) {
+      setError(t('manage.validation.icon'));
       return;
     }
     await run(async () => {
       if (existing) {
-        await updateRightsCategory(existing.id, categoryPayload(categoryForm));
+        await updateRightsCategory(existing.id, categoryPayload(categoryForm, false));
       } else {
         await createRightsCategory(categoryPayload(categoryForm));
         setIsCreating(false);
@@ -147,12 +183,16 @@ export function ManageRightsScreen() {
 
   const renderCategoryForm = (existing?: ManagedRightsCategory) => (
     <Card style={styles.form}>
-      <ContentTextField
-        hint="Stable slug used in the app URL, e.g. workplace"
-        label="Category id"
-        onChangeText={(v) => setCategoryField('categoryId', v)}
-        value={categoryForm.categoryId}
-      />
+      {existing ? (
+        <Text color="textSecondary" variant="label">Category id: {existing.categoryId}</Text>
+      ) : (
+        <ContentTextField
+          hint="Stable ID used in the app URL, e.g. workplace"
+          label="Category id"
+          onChangeText={(v) => setCategoryField('categoryId', v)}
+          value={categoryForm.categoryId}
+        />
+      )}
       <ContentTextField label="Title" onChangeText={(v) => setCategoryField('title', v)} value={categoryForm.title} />
       <ContentTextField
         hint="Plain language — this is the tile subtitle."
@@ -247,19 +287,31 @@ export function ManageRightsScreen() {
           label="Add protection"
           loading={isSaving}
           onPress={async () => {
-            if (!protectionDraft.id.trim() || !protectionDraft.title.trim()) {
-              setError('A protection id and title are required.');
+            if (!STABLE_ID_PATTERN.test(protectionDraft.id.trim())) {
+              setError(t('manage.validation.protectionId'));
               return;
             }
-            await run(() =>
+            if (category.protections.some((item) => item.protectionId === protectionDraft.id.trim())) {
+              setError(t('manage.validation.protectionIdDuplicate'));
+              return;
+            }
+            if (protectionDraft.title.trim().length < 2 || protectionDraft.title.trim().length > 160) {
+              setError(t('manage.validation.protectionTitle'));
+              return;
+            }
+            if (protectionDraft.body.trim().length < 10 || protectionDraft.body.trim().length > 5000) {
+              setError(t('manage.validation.protectionBody'));
+              return;
+            }
+            const saved = await run(() =>
               createProtection(category.id, {
                 protectionId: protectionDraft.id.trim(),
                 title: protectionDraft.title.trim(),
-                body: protectionDraft.body,
+                body: protectionDraft.body.trim(),
                 order: category.protections.length,
               }),
             );
-            setProtectionDraft({ id: '', title: '', body: '' });
+            if (saved) setProtectionDraft({ id: '', title: '', body: '' });
           }}
           variant="secondary"
         />
@@ -306,19 +358,31 @@ export function ManageRightsScreen() {
           label="Add FAQ"
           loading={isSaving}
           onPress={async () => {
-            if (!faqDraft.id.trim() || !faqDraft.question.trim()) {
-              setError('A FAQ id and question are required.');
+            if (!STABLE_ID_PATTERN.test(faqDraft.id.trim())) {
+              setError(t('manage.validation.faqId'));
               return;
             }
-            await run(() =>
+            if (category.faqs.some((item) => item.faqId === faqDraft.id.trim())) {
+              setError(t('manage.validation.faqIdDuplicate'));
+              return;
+            }
+            if (faqDraft.question.trim().length < 5 || faqDraft.question.trim().length > 300) {
+              setError(t('manage.validation.faqQuestion'));
+              return;
+            }
+            if (faqDraft.answer.trim().length < 10 || faqDraft.answer.trim().length > 5000) {
+              setError(t('manage.validation.faqAnswer'));
+              return;
+            }
+            const saved = await run(() =>
               createFaq(category.id, {
                 faqId: faqDraft.id.trim(),
                 question: faqDraft.question.trim(),
-                answer: faqDraft.answer,
+                answer: faqDraft.answer.trim(),
                 order: category.faqs.length,
               }),
             );
-            setFaqDraft({ id: '', question: '', answer: '' });
+            if (saved) setFaqDraft({ id: '', question: '', answer: '' });
           }}
           variant="secondary"
         />
