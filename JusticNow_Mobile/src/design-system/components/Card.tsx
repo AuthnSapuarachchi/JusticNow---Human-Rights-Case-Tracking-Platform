@@ -45,8 +45,13 @@ export function Card({ bordered = true, onPress, style, children, ...rest }: Car
 
 const styles = StyleSheet.create({
   card: {
+    elevation: 2,
     borderRadius: Radius.lg,
     padding: Spacing.lg,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
   },
   pressed: {
     opacity: 0.75,
