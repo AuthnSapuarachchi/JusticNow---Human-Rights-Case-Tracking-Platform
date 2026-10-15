@@ -22,7 +22,6 @@ import { useAuth } from '@/context/AuthContext';
 import { Badge, Button, Card, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
-import { useAuth } from '@/context/AuthContext';
 import {
   formatCaseDate,
   formatCaseDateTime,
@@ -182,6 +181,10 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
     session?.user.role === 'ADMIN' ||
     (caseDetail.officerId !== null && Number(caseDetail.officerId) === Number(session?.user.id));
   const canAct = canModify && !isClosed;
+  const isAssignedOfficer =
+    session?.user.role === 'OFFICER' &&
+    caseDetail.officerId !== null &&
+    Number(caseDetail.officerId) === Number(session.user.id);
 
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: colors.canvas }]}>
@@ -342,7 +345,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
               />
             )}
 
-            {caseDetail.officerId === session?.user.id && !caseDetail.approvedAt ? (
+            {isAssignedOfficer && !caseDetail.approvedAt ? (
               <Button
                 icon="checkmark-circle-outline"
                 label={approving ? 'Approving...' : 'Approve Case'}
@@ -352,7 +355,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
               />
             ) : null}
 
-            {caseDetail.officerId === session?.user.id && caseDetail.approvedAt ? (
+            {isAssignedOfficer && caseDetail.approvedAt ? (
               <Button
                 icon="chatbubble-ellipses-outline"
                 label="Message Citizen"
@@ -361,12 +364,6 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
               />
             ) : null}
 
-            <Button
-              icon="sync-outline"
-              label="Update Status"
-              onPress={() => router.push(`/officer/${caseDetail.id}/status` as any)}
-              variant="primary"
-            />
             {canModify && (
               <Button
                 icon="sync-outline"
