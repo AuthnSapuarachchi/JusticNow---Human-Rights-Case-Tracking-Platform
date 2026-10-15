@@ -1,5 +1,5 @@
-import { RoleDashboard } from '@/components/RoleDashboard';
+import { AdminDashboardScreen } from '@/features/admin/screens/AdminDashboardScreen';
 
 export default function AdminRoute() {
-  return <RoleDashboard role="ADMIN" />;
+  return <AdminDashboardScreen />;
 }

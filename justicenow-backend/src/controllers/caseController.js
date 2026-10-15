@@ -27,7 +27,7 @@ const generateTrackingCode = () => 'JN-' + Math.floor(100000 + Math.random() * 9
 
 const submitCase = async (req, res) => {
     try {
-        const { description, pin, category, incidentDate, location, isAnonymous } = req.body;
+        const { description, pin, category, incidentDate, location, isAnonymous, officerId } = req.body;
         const file = req.file; // Captured by Multer in your router
 
         const normalizedDescription = description?.trim();
@@ -42,6 +42,18 @@ const submitCase = async (req, res) => {
         }
         if (parsedIncidentDate && Number.isNaN(parsedIncidentDate.getTime())) {
             return res.status(400).json({ error: 'Please enter a valid incident date.' });
+        }
+        const selectedOfficerId = Number(officerId);
+        if (!officerId || !Number.isInteger(selectedOfficerId) || selectedOfficerId < 1) {
+            return res.status(400).json({ error: 'Please select an officer for this case.' });
+        }
+
+        const selectedOfficer = await prisma.user.findFirst({
+            where: { id: selectedOfficerId, role: 'OFFICER', isActive: true },
+            select: { id: true },
+        });
+        if (!selectedOfficer) {
+            return res.status(400).json({ error: 'The selected officer is not active or eligible.' });
         }
 
         const uniqueCode = generateTrackingCode();
@@ -81,6 +93,9 @@ const submitCase = async (req, res) => {
                 location: location?.trim() || null,
                 reporter: {
                     connect: { id: req.user.id }
+                },
+                officer: {
+                    connect: { id: selectedOfficer.id }
                 },
                 trackingCode: {
                     create: { code: uniqueCode, pin: hashedPin }
@@ -132,6 +147,11 @@ const serializeCase = (caseRecord) => ({
     reference: caseRecord.trackingCode?.code || `CASE-${caseRecord.id}`,
     category: caseRecord.category.replace(/_/g, ' '),
     status: serializeStatus(caseRecord.status),
+    approved: Boolean(caseRecord.approvedAt),
+    officer: caseRecord.officer ? {
+        id: caseRecord.officer.id,
+        name: caseRecord.officer.name,
+    } : null,
     lastUpdated: caseRecord.updatedAt,
     description: caseRecord.description,
     requiredAction: caseRecord.actionRequest || undefined,
@@ -140,7 +160,11 @@ const serializeCase = (caseRecord) => ({
     evidence: caseRecord.evidence,
 });
 
-const caseInclude = { trackingCode: true, evidence: true };
+const caseInclude = {
+    trackingCode: true,
+    evidence: true,
+    officer: { select: { id: true, name: true } },
+};
 
 const canViewCase = (req, caseRecord) =>
     req.user.role === 'ADMIN' ||
@@ -179,15 +203,59 @@ const getCase = async (req, res) => {
 const getCaseStatus = async (req, res) => {
     try {
         const caseId = Number(req.params.caseId);
-        const caseRecord = await prisma.case.findUnique({ where: { id: caseId } });
+        if (!Number.isInteger(caseId) || caseId < 1) return res.status(400).json({ error: 'Invalid case ID.' });
+
+        const caseRecord = await prisma.case.findUnique({
+            where: { id: caseId },
+            include: {
+                statusHistory: {
+                    orderBy: { createdAt: 'asc' },
+                    include: { changedBy: { select: { role: true } } },
+                },
+            },
+        });
         if (!caseRecord || !canViewCase(req, caseRecord)) return res.status(404).json({ error: 'Case not found.' });
 
-        const status = serializeStatus(caseRecord.status);
-        res.json([
-            { id: `${caseRecord.id}-submitted`, status: 'pending', label: 'Case submitted', timestamp: caseRecord.createdAt, completed: true },
-            { id: `${caseRecord.id}-review`, status: 'in-progress', label: 'Under review', timestamp: status === 'pending' ? '' : caseRecord.updatedAt, completed: status !== 'pending' },
-            { id: `${caseRecord.id}-resolved`, status: 'resolved', label: 'Resolution', timestamp: status === 'resolved' ? caseRecord.updatedAt : '', completed: status === 'resolved' },
-        ]);
+        const statusLabels = {
+            NEW: 'New',
+            SUBMITTED: 'Submitted',
+            UNDER_REVIEW: 'Under Review',
+            INVESTIGATING: 'Investigating',
+            WAITING_FOR_USER: 'Waiting for User',
+            ACTION_REQUIRED: 'Action Required',
+            RESOLVED: 'Resolved',
+            CLOSED: 'Closed',
+        };
+        const updates = [
+            {
+                id: `${caseRecord.id}-submitted`,
+                status: serializeStatus('SUBMITTED'),
+                label: 'Case submitted',
+                timestamp: caseRecord.createdAt,
+                completed: true,
+                updatedBy: 'SYSTEM',
+            },
+            ...caseRecord.statusHistory.map((entry) => ({
+                id: String(entry.id),
+                status: serializeStatus(entry.toStatus),
+                label: statusLabels[entry.toStatus] || entry.toStatus.replace(/_/g, ' '),
+                timestamp: entry.createdAt,
+                completed: true,
+                updatedBy: entry.changedBy.role,
+            })),
+        ];
+
+        if (caseRecord.statusHistory.length === 0 && caseRecord.status !== 'SUBMITTED') {
+            updates.push({
+                id: `${caseRecord.id}-current`,
+                status: serializeStatus(caseRecord.status),
+                label: statusLabels[caseRecord.status] || caseRecord.status.replace(/_/g, ' '),
+                timestamp: caseRecord.updatedAt,
+                completed: true,
+            });
+        }
+
+        res.json(updates);
     } catch (error) {
         console.error('Error loading case status:', error);
         res.status(500).json({ error: 'Unable to load case status right now.' });

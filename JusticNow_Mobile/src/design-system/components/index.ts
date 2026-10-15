@@ -1,6 +1,7 @@
 export { Badge, type BadgeProps, type BadgeTone } from './Badge';
 export { Button, type ButtonProps } from './Button';
 export { Card, type CardProps } from './Card';
+export { ContentTextField, type ContentTextFieldProps } from './ContentTextField';
 export { FilterChip, type FilterChipProps } from './FilterChip';
 export { IconTile, type IconTileProps } from './IconTile';
 export { LanguageToggle, type LanguageToggleProps } from './LanguageToggle';

@@ -19,6 +19,7 @@ import {
   Text,
   useColors,
 } from '@/design-system';
+import { useHomeRoute } from '@/hooks/use-home-route';
 import { useTranslation, type TranslationKey } from '@/i18n';
 
 import { getOrganizations } from '../data/organizations';
@@ -42,6 +43,7 @@ const LANGUAGE_FILTERS: string[] = ['all', 'si', 'ta', 'en'];
 export function LegalDirectoryScreen() {
   const router = useRouter();
   const colors = useColors();
+  const homeRoute = useHomeRoute();
   const { t } = useTranslation();
 
   const [organizations, setOrganizations] = useState<Organization[]>([]);
@@ -87,7 +89,7 @@ export function LegalDirectoryScreen() {
   }, [filters, organizations]);
 
   const handleTabPress = (tab: string) => {
-    if (tab === NavTab.Home) router.replace('/');
+    if (tab === NavTab.Home) router.replace(homeRoute);
     if (tab === NavTab.Cases) router.push('/cases');
     if (tab === NavTab.Messages) router.push('/messages');
   };

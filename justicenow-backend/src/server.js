@@ -7,6 +7,12 @@ const caseRoutes = require('./routes/caseRoutes');
 const authRoutes = require('./routes/authRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const userRoutes = require('./routes/userRoutes');
+const rightsRoutes = require('./routes/rightsRoutes');
+const organizationRoutes = require('./routes/organizationRoutes');
+const officerRoutes = require('./routes/officerRoutes');
+const adminRoutes = require('./routes/adminRoutes');
+const verificationRoutes = require('./routes/verificationRoutes');
+const categoryRoutes = require('./routes/categoryRoutes');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const prisma = require('./config/db');
@@ -18,6 +24,7 @@ dotenv.config();
 const app = express();
 const httpServer = http.createServer(app);
 const io = new Server(httpServer, { cors: { origin: '*' } });
+app.set('io', io); // lets controllers emit socket events (e.g. officer info requests)
 
 // Middlewares
 app.use(cors());
@@ -36,6 +43,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/cases', caseRoutes);
 app.use('/api', chatRoutes(io));
 app.use('/api/users', userRoutes);
+app.use('/api/rights', rightsRoutes);
+app.use('/api/organizations', organizationRoutes);
+app.use('/api/officer', officerRoutes);
+app.use('/api/admin', adminRoutes);
+app.use('/api/admin/verifications', verificationRoutes);
+app.use('/api/categories', categoryRoutes);
 
 io.use((socket, next) => {
     try {
@@ -49,11 +62,20 @@ io.use((socket, next) => {
 
 io.on('connection', (socket) => {
     socket.on('chat:join', async (caseId) => {
-        const numericCaseId = Number(caseId);
-        const foundCase = Number.isInteger(numericCaseId) && numericCaseId > 0
-            ? await prisma.case.findUnique({ where: { id: numericCaseId } })
-            : await prisma.case.findFirst({ where: { trackingCode: { is: { code: String(caseId) } } } });
-        if (foundCase) socket.join(`case:${foundCase.id}`);
+        try {
+            const numericCaseId = Number(caseId);
+            const foundCase = Number.isInteger(numericCaseId) && numericCaseId > 0
+                ? await prisma.case.findUnique({ where: { id: numericCaseId } })
+                : await prisma.case.findFirst({ where: { trackingCode: { is: { code: String(caseId) } } } });
+            const user = socket.user;
+            const isParticipant = foundCase && (
+                (user.role === 'CITIZEN' && foundCase.reporterId === user.id) ||
+                (user.role === 'OFFICER' && foundCase.officerId === user.id)
+            );
+            if (isParticipant && foundCase.approvedAt) socket.join(`case:${foundCase.id}`);
+        } catch (error) {
+            console.error('Unable to join case chat:', error);
+        }
     });
     socket.on('chat:leave', (caseId) => socket.leave(`case:${caseId}`));
 });

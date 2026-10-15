@@ -76,11 +76,16 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    borderRadius: Radius.md,
+    borderRadius: Radius.pill,
+    elevation: 1,
     justifyContent: 'center',
     minHeight: Layout.minTapTarget,
-    paddingHorizontal: Spacing.xl,
+    paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 5,
   },
   content: {
     alignItems: 'center',

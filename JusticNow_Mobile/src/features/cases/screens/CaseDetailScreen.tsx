@@ -25,13 +25,24 @@ export function CaseDetailScreen({ caseId }: CaseDetailScreenProps) {
   if (error || !detail) return <SafeAreaView style={styles.safeArea}><View style={styles.centerState}><Text style={styles.errorText}>{error ?? 'Case not found.'}</Text><Pressable onPress={() => router.replace('/cases')}><Text style={styles.retryText}>Back to cases</Text></Pressable></View></SafeAreaView>;
 
   const status = getStatusConfig(detail.status);
+  const canMessageOfficer = Boolean(detail.approved && detail.officer);
   return <SafeAreaView edges={['top']} style={styles.safeArea}>
     <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
       <View style={styles.header}><Pressable accessibilityLabel="Back to cases" onPress={() => router.replace('/cases')} style={styles.backButton}><Ionicons color="#18303b" name="arrow-back" size={23} /></Pressable><Text style={styles.headerTitle}>Case details</Text><View style={styles.headerSpacer} /></View>
       {detail.requiredAction ? <View style={styles.actionBanner}><Ionicons color="#b96925" name="alert-circle" size={24} /><View style={styles.actionCopy}><Text style={styles.actionTitle}>Action needed</Text><Text style={styles.actionText}>{detail.requiredAction}</Text></View></View> : null}
       <View style={styles.summary}><View style={styles.summaryTop}><View style={styles.caseIcon}><Ionicons color="#2875d0" name="folder-open" size={22} /></View><View style={styles.summaryCopy}><Text style={styles.reference}>{detail.reference}</Text><Text style={styles.category}>{detail.category}</Text></View></View><View style={styles.statusLine}><View style={[styles.statusBadge, { backgroundColor: status.background }]}><Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text></View><Text style={styles.updated}>Updated {formatCaseDate(detail.lastUpdated)}</Text></View><Text style={styles.description}>{detail.description}</Text></View>
+      <Pressable accessibilityRole="button" accessibilityState={{ disabled: !canMessageOfficer }} disabled={!canMessageOfficer} onPress={() => router.push(`/cases/${caseId}/messages` as any)} style={({ pressed }) => ({ alignItems: 'center', backgroundColor: canMessageOfficer ? '#1f5d56' : '#e4ebea', borderRadius: 9, flexDirection: 'row', gap: 10, marginTop: 14, minHeight: 58, opacity: pressed && canMessageOfficer ? 0.8 : 1, paddingHorizontal: 16 })}>
+        <Ionicons color={canMessageOfficer ? '#ffffff' : '#718088'} name={canMessageOfficer ? 'chatbubble-ellipses-outline' : 'lock-closed-outline'} size={19} />
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: canMessageOfficer ? '#ffffff' : '#52646d', fontSize: 14, fontWeight: '700' }}>
+            {detail.officer ? `Message ${detail.officer.name || 'Officer'}` : 'Message Officer'}
+          </Text>
+          {!canMessageOfficer ? <Text style={{ color: '#718088', fontSize: 11, marginTop: 3 }}>{detail.officer ? 'Available after officer approval' : 'Available after officer assignment'}</Text> : null}
+        </View>
+        {canMessageOfficer ? <Ionicons color="#ffffff" name="chevron-forward" size={17} /> : null}
+      </Pressable>
       <Text style={styles.sectionTitle}>Case progress</Text>
-      <View style={styles.timeline}>{timeline.map((update, index) => { const updateStatus = getStatusConfig(update.status); const isLast = index === timeline.length - 1; return <View key={update.id} style={styles.timelineRow}><View style={styles.timelineRail}>{<View style={[styles.timelineIcon, update.completed ? { backgroundColor: updateStatus.background } : styles.inactiveIcon]}><Ionicons color={update.completed ? updateStatus.color : '#aeb9bd'} name={updateStatus.icon} size={19} /></View>}{!isLast ? <View style={[styles.line, update.completed && styles.completedLine]} /> : null}</View><View style={styles.timelineCopy}><Text style={[styles.timelineLabel, !update.completed && styles.inactiveLabel]}>{update.label}</Text><Text style={styles.timelineTime}>{formatCaseDateTime(update.timestamp)}</Text></View></View>; })}</View>
+      <View style={styles.timeline}>{timeline.map((update, index) => { const updateStatus = getStatusConfig(update.status); const isLast = index === timeline.length - 1; return <View key={update.id} style={styles.timelineRow}><View style={styles.timelineRail}>{<View style={[styles.timelineIcon, update.completed ? { backgroundColor: updateStatus.background } : styles.inactiveIcon]}><Ionicons color={update.completed ? updateStatus.color : '#aeb9bd'} name={updateStatus.icon} size={19} /></View>}{!isLast ? <View style={[styles.line, update.completed && styles.completedLine]} /> : null}</View><View style={styles.timelineCopy}><Text style={[styles.timelineLabel, !update.completed && styles.inactiveLabel]}>{update.label}</Text><Text style={styles.timelineTime}>{formatCaseDateTime(update.timestamp)}{update.updatedBy === 'OFFICER' ? ' · Officer update' : ''}</Text></View></View>; })}</View>
     </ScrollView>
     <BottomNavBar activeTab={NavTab.Cases} onTabPress={handleTabPress} />
   </SafeAreaView>;

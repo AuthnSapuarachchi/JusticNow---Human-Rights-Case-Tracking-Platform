@@ -9,6 +9,7 @@ export default defineConfig({
     path: "prisma/migrations",
   },
   datasource: {
-    url: process.env["DATABASE_URL"],
+    // Migrations need a session connection; Supabase's 6543 transaction pooler hangs on them.
+    url: process.env["DIRECT_URL"] ?? process.env["DATABASE_URL"],
   },
 });

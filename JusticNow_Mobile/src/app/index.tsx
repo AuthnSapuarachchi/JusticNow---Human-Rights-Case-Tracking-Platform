@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, SafeAreaView, BackHandler, Pressable } from 'react-native';
+import React, { useRef } from 'react';
+import { Animated, View, Text, StyleSheet, TouchableOpacity, SafeAreaView, BackHandler, Pressable } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar'; // Keeping your teammate's nav bar
@@ -8,6 +8,11 @@ import { useAuth } from '@/context/AuthContext';
 export default function CitizenLandingPage() {
   const router = useRouter();
   const { logout } = useAuth();
+  const scrollY = useRef(new Animated.Value(0)).current;
+  const bottomNavTranslateY = Animated.diffClamp(scrollY, 0, 100).interpolate({
+    inputRange: [0, 100],
+    outputRange: [0, 100],
+  });
 
   const handleLogout = async () => {
     await logout();
@@ -37,7 +42,12 @@ export default function CitizenLandingPage() {
         </Pressable>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <Animated.ScrollView
+        contentContainerStyle={styles.scrollContent}
+        onScroll={Animated.event([{ nativeEvent: { contentOffset: { y: scrollY } } }], { useNativeDriver: true })}
+        scrollEventThrottle={16}
+        showsVerticalScrollIndicator={false}
+      >
         
         {/* Hero Section */}
         <View style={styles.heroSection}>
@@ -94,10 +104,12 @@ export default function CitizenLandingPage() {
           <Text style={styles.quickExitText}>Quick Exit</Text>
         </TouchableOpacity>
 
-      </ScrollView>
+      </Animated.ScrollView>
 
       {/* Reusing your teammate's Bottom Nav */}
-      <BottomNavBar activeTab={NavTab.Home} onTabPress={handleTabPress} />
+      <Animated.View style={[styles.bottomNav, { transform: [{ translateY: bottomNavTranslateY }] }]}>
+        <BottomNavBar activeTab={NavTab.Home} onTabPress={handleTabPress} />
+      </Animated.View>
     </SafeAreaView>
   );
 }
@@ -106,7 +118,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8FAFC' },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E2E8F0' },
   headerTitle: { fontSize: 16, fontWeight: 'bold', color: '#1E293B' },
-  scrollContent: { padding: 20, paddingBottom: 40 },
+  scrollContent: { padding: 20, paddingBottom: 140 },
+  bottomNav: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   
   heroSection: { alignItems: 'center', marginBottom: 24, marginTop: 10 },
   heroTitle: { fontSize: 22, fontWeight: '900', color: '#1E293B', textAlign: 'center', lineHeight: 30, marginBottom: 12 },
