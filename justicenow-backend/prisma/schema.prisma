@@ -45,6 +45,13 @@ enum CaseActionType {
   REFERRED
   CLOSED
   ESCALATED
+  // Manually recorded officer actions
+  CONTACTED_USER
+  CONTACTED_AUTHORITY
+  FIELD_VISIT
+  EVIDENCE_REVIEWED
+  MEETING_HELD
+  OTHER_ACTION
 }
 
 enum InfoRequestStatus {
@@ -268,6 +275,7 @@ model RightsProtection {
   categoryId Int
   category   RightsCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
+  @@unique([categoryId, protectionId])
   @@map("rightsprotection")
 }
 
@@ -281,6 +289,7 @@ model RightsFaq {
   categoryId Int
   category   RightsCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
 
+  @@unique([categoryId, faqId])
   @@map("rightsfaq")
 }
 
