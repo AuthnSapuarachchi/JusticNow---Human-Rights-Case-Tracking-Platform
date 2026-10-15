@@ -72,7 +72,7 @@ export async function request<T>(path: string, options: RequestInit = {}, hasRet
 export async function requestMultipart<T>(path: string, body: FormData, hasRetried = false): Promise<T> {
 	const session = await readSession();
 	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), 15000);
+	const timeout = setTimeout(() => controller.abort(), 60000);
 
 	try {
 		console.info(`[API] multipart POST ${API_URL}${path}`);
@@ -104,7 +104,7 @@ export async function requestMultipart<T>(path: string, body: FormData, hasRetri
 		return result;
 	} catch (error) {
 		if (error instanceof Error && error.name === 'AbortError') {
-			throw new Error('The server did not respond within 15 seconds. Check that the backend is running and the API address is reachable.');
+			throw new Error('The server did not respond within 60 seconds. Check that the backend is running and the API address is reachable.');
 		}
 		throw error;
 	} finally {

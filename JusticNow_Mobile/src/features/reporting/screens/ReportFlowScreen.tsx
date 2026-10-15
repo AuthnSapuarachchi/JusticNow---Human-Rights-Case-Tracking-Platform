@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, SafeAreaView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Importing your 4 step components
@@ -41,7 +41,11 @@ export default function ReportFlowScreen() {
             description: typeof parsedDraft.description === 'string' ? parsedDraft.description : '',
             pin: typeof parsedDraft.pin === 'string' ? parsedDraft.pin.replace(/\D/g, '').slice(0, 12) : '',
             officerId: Number.isInteger(parsedDraft.officerId) ? parsedDraft.officerId : null,
-            files: Array.isArray(parsedDraft.files) ? parsedDraft.files : [],
+            // Browser object URLs and File objects cannot be restored from AsyncStorage.
+            // Drop old blob-backed attachments so users are prompted to select them again.
+            files: Array.isArray(parsedDraft.files)
+              ? parsedDraft.files.filter((file: any) => Platform.OS !== 'web' || !String(file?.uri || '').startsWith('blob:'))
+              : [],
           });
         }
       } catch (error) {
