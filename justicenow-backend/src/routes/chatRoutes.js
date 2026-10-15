@@ -3,7 +3,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { protectRoute, authorizeRoles } = require('../middlewares/authMiddleware');
-const { createMessage, listMessages, uploadAttachment } = require('../controllers/chatController');
+const { authorizeCaseChat, createMessage, listMessages, uploadAttachment } = require('../controllers/chatController');
 
 const uploadDirectory = path.join(process.cwd(), 'uploads');
 fs.mkdirSync(uploadDirectory, { recursive: true });
@@ -18,7 +18,7 @@ module.exports = (io) => {
 
     router.get('/cases/:caseId/messages', protectRoute, authorizeRoles(...chatAccess), listMessages);
     router.post('/cases/:caseId/messages', protectRoute, authorizeRoles(...chatAccess), createMessage(io));
-    router.post('/messages/upload', protectRoute, authorizeRoles(...chatAccess), upload.single('file'), uploadAttachment);
+    router.post('/cases/:caseId/messages/upload', protectRoute, authorizeRoles(...chatAccess), authorizeCaseChat, upload.single('file'), uploadAttachment);
 
     return router;
 };

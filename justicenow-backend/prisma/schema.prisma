@@ -10,7 +10,15 @@ datasource db {
 enum Role {
   CITIZEN
   OFFICER
+  LAWYER
   ADMIN
+}
+
+enum VerificationStatus {
+  NOT_REQUIRED
+  PENDING_VERIFICATION
+  APPROVED
+  REJECTED
 }
 
 enum CaseStatus {
@@ -60,12 +68,15 @@ enum ViolationCategory {
 
 // --- 1. ADMINISTRATIVE TABLES ---
 model User {
-  id       Int     @id @default(autoincrement())
-  email    String  @unique
-  password String
-  name     String?
-  role     Role    @default(OFFICER)
-  isActive Boolean @default(true)
+  id                 Int                @id @default(autoincrement())
+  email              String             @unique
+  password           String
+  name               String?
+  role               Role               @default(OFFICER)
+  isActive           Boolean            @default(true)
+  verificationStatus VerificationStatus @default(NOT_REQUIRED)
+  rejectionReason    String?            @db.Text
+  contactNumber      String?
 
   organizationId Int?
   organization   LegalOrganization? @relation(fields: [organizationId], references: [id])
@@ -85,27 +96,62 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  verificationProfile   VerificationProfile?
+  verificationDocuments VerificationDocument[]
+
   @@map("user")
+}
+
+model VerificationProfile {
+  id                  Int      @id @default(autoincrement())
+  userId              Int      @unique
+  user                User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  officerId           String?
+  organization        String?
+  department          String?
+  designation         String?
+  governmentId        String?
+  lawyerNumber        String?
+  firm                String?
+  practiceArea        String?
+  experienceYears     Int?
+  additionalDocuments String?  @db.Text
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+}
+
+model VerificationDocument {
+  id           Int                @id @default(autoincrement())
+  userId       Int
+  user         User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentType String
+  originalName String
+  storageName  String             @unique
+  mimeType     String
+  sizeBytes    Int
+  status       VerificationStatus @default(PENDING_VERIFICATION)
+  createdAt    DateTime           @default(now())
+
+  @@index([userId])
 }
 
 model LegalOrganization {
   id           Int     @id @default(autoincrement())
   name         String
   contactEmail String
+  phone        String?
+  location     String?
+  description  String? @db.Text
   verified     Boolean @default(false)
 
   // EP-06 directory fields. All optional/defaulted so existing rows and the
   // officer referral flow keep working without a backfill.
-  description String? @db.Text
-  languages   String  @default("") // comma-separated codes: "si,ta,en"
-  categories  String  @default("") // comma-separated slugs: "legalAid,humanRights"
-  isFree      Boolean @default(true)
-  distanceKm  Float? // kilometres - never miles
-  location    String?
-  phone       String?
-
-  officers  User[]
-  referrals CaseReferral[]
+  languages  String         @default("") // comma-separated codes: "si,ta,en"
+  categories String         @default("") // comma-separated slugs: "legalAid,humanRights"
+  isFree     Boolean        @default(true)
+  distanceKm Float? // kilometres - never miles
+  officers   User[]
+  referrals  CaseReferral[]
 
   createdAt DateTime @default(now())
 
@@ -122,6 +168,7 @@ model Case {
   location       String?
   actionRequest  String?
   status         CaseStatus          @default(SUBMITTED)
+  approvedAt     DateTime?
   priority       CasePriority        @default(NORMAL)
   escalated      Boolean             @default(false)
   escalatedAt    DateTime?

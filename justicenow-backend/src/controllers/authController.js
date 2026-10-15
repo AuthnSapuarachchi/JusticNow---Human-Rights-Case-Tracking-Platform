@@ -21,12 +21,31 @@ const isDatabaseUnavailable = (error) =>
     ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error?.cause?.code);
 
 // --- 1. Register user ---
-const registerOfficer = async (req, res) => {
+const registerUser = async (req, res) => {
     try {
-        const { email, password, name } = req.body;
+        const { email, password, name, role = 'CITIZEN', contactNumber } = req.body;
 
         if (!name?.trim() || !email?.trim() || !password || password.length < 8) {
             return res.status(400).json({ error: 'Name, email, and a password of at least 8 characters are required.' });
+        }
+        if (!['CITIZEN', 'OFFICER'].includes(role)) {
+            return res.status(403).json({ error: 'Administrator accounts are provisioned by the platform and cannot be created through public registration.' });
+        }
+        if (role !== 'CITIZEN' && !contactNumber?.trim()) {
+            return res.status(400).json({ error: 'A contact number is required for professional accounts.' });
+        }
+
+        const files = Array.isArray(req.files) ? req.files : [];
+        let documentTypes = [];
+        try {
+            documentTypes = Array.isArray(req.body.documentTypes)
+                ? req.body.documentTypes
+                : JSON.parse(req.body.documentTypes || '[]');
+        } catch {
+            return res.status(400).json({ error: 'Invalid document metadata.' });
+        }
+        if (role === 'OFFICER' && files.length < 2) {
+            return res.status(400).json({ error: 'All required verification documents must be uploaded.' });
         }
 
         const normalizedEmail = email.trim().toLowerCase();
@@ -40,20 +59,50 @@ const registerOfficer = async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
 
         // Save to DB
-        const newUser = await prisma.user.create({
-            data: {
-                email: normalizedEmail,
-                password: hashedPassword,
-                name: name.trim(),
-                role: 'CITIZEN'
-            }
+        const isCitizen = role === 'CITIZEN';
+        const profileData = {
+            officerId: req.body.officerId?.trim() || null,
+            organization: req.body.organization?.trim() || null,
+            department: req.body.department?.trim() || null,
+            designation: req.body.designation?.trim() || null,
+            governmentId: req.body.governmentId?.trim() || null,
+            lawyerNumber: req.body.lawyerNumber?.trim() || null,
+            firm: req.body.firm?.trim() || null,
+            practiceArea: req.body.practice?.trim() || null,
+            experienceYears: req.body.experience ? Number(req.body.experience) : null,
+        };
+        const newUser = await prisma.$transaction(async (transaction) => {
+            const user = await transaction.user.create({
+                data: {
+                    email: normalizedEmail,
+                    password: hashedPassword,
+                    name: name.trim(),
+                    role,
+                    contactNumber: contactNumber?.trim() || null,
+                    verificationStatus: isCitizen ? 'NOT_REQUIRED' : 'PENDING_VERIFICATION',
+                    ...(isCitizen ? {} : {
+                        verificationProfile: { create: profileData },
+                        ...(role === 'OFFICER' ? { verificationDocuments: {
+                            create: files.map((file, index) => ({
+                                documentType: String(documentTypes[index] || `Verification document ${index + 1}`),
+                                originalName: file.originalname,
+                                storageName: file.filename,
+                                mimeType: file.mimetype,
+                                sizeBytes: file.size,
+                            })),
+                        } } : {}),
+                    }),
+                },
+            });
+            return user;
         });
 
         const tokens = createTokens(newUser);
 
         res.status(201).json({ 
-            message: 'Account created successfully.',
-            user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role },
+            message: isCitizen ? 'Account created successfully.' : 'Registration submitted successfully. Your account is pending verification.',
+            verificationStatus: newUser.verificationStatus,
+            user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role, verificationStatus: newUser.verificationStatus },
             ...tokens
         });
     } catch (error) {
@@ -66,7 +115,7 @@ const registerOfficer = async (req, res) => {
     }
 };
 
-// --- 2. Login Officer (Returns Access & Refresh Tokens) ---
+// --- 2. Login (Returns Access & Refresh Tokens) ---
 const loginOfficer = async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -87,7 +136,7 @@ const loginOfficer = async (req, res) => {
 
         res.status(200).json({ 
             message: 'Login successful!', 
-            user: { id: officer.id, email: officer.email, name: officer.name, role: officer.role },
+            user: { id: officer.id, email: officer.email, name: officer.name, role: officer.role, verificationStatus: officer.verificationStatus, rejectionReason: officer.rejectionReason },
             ...tokens
         });
     } catch (error) {
@@ -121,7 +170,7 @@ const refreshUserToken = async (req, res) => {
         // Deactivated or deleted accounts cannot refresh their session
         const user = await prisma.user.findUnique({
             where: { id: decoded.id },
-            select: { id: true, role: true, isActive: true },
+            select: { id: true, role: true, isActive: true, verificationStatus: true },
         });
         if (!user || user.isActive === false) {
             return res.status(403).json({ error: 'This account is no longer active. Please log in again.' });
@@ -144,4 +193,4 @@ const refreshUserToken = async (req, res) => {
     }
 };
 
-module.exports = { registerOfficer, loginOfficer, refreshUserToken };
+module.exports = { registerUser, registerOfficer: registerUser, loginOfficer, refreshUserToken };

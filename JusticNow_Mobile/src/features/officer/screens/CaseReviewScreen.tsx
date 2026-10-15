@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  approveCase,
   assignCase,
   getOfficerCase,
   OfficerCaseDetail,
@@ -46,12 +47,17 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
   const { session } = useAuth();
   const params = useLocalSearchParams<{ id?: string; caseId?: string }>();
   const activeCaseId = propCaseId || params.id || params.caseId;
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/officer/queue' as any);
+  };
 
   const [caseDetail, setCaseDetail] = useState<OfficerCaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   // Active section tab
   const [activeTab, setActiveTab] = useState<'evidence' | 'notes' | 'info' | 'referrals' | 'actions'>(
@@ -125,6 +131,25 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
     }
   };
 
+  const handleApprove = async () => {
+    if (!caseDetail) return;
+    try {
+      setApproving(true);
+      const result = await approveCase(caseDetail.id);
+      setCaseDetail((current) => current ? {
+        ...current,
+        ...result.case,
+        statusHistory: [result.statusHistory, ...current.statusHistory],
+        actions: [result.action, ...current.actions],
+      } : current);
+      Alert.alert('Case Approved', result.message);
+    } catch (err: any) {
+      Alert.alert('Approval Failed', err?.message || 'Unable to approve this case.');
+    } finally {
+      setApproving(false);
+    }
+  };
+
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={[styles.centerContainer, { backgroundColor: colors.canvas }]}>
@@ -156,6 +181,10 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
     session?.user.role === 'ADMIN' ||
     (caseDetail.officerId !== null && Number(caseDetail.officerId) === Number(session?.user.id));
   const canAct = canModify && !isClosed;
+  const isAssignedOfficer =
+    session?.user.role === 'OFFICER' &&
+    caseDetail.officerId !== null &&
+    Number(caseDetail.officerId) === Number(session.user.id);
 
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: colors.canvas }]}>
@@ -164,7 +193,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
         <Pressable
           accessibilityLabel="Back to Queue"
           hitSlop={8}
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
           <Ionicons color={colors.textPrimary} name="arrow-back" size={24} />
@@ -315,6 +344,25 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 variant="secondary"
               />
             )}
+
+            {isAssignedOfficer && !caseDetail.approvedAt ? (
+              <Button
+                icon="checkmark-circle-outline"
+                label={approving ? 'Approving...' : 'Approve Case'}
+                loading={approving}
+                onPress={handleApprove}
+                variant="primary"
+              />
+            ) : null}
+
+            {isAssignedOfficer && caseDetail.approvedAt ? (
+              <Button
+                icon="chatbubble-ellipses-outline"
+                label="Message Citizen"
+                onPress={() => router.push(`/cases/${caseDetail.id}/messages` as any)}
+                variant="secondary"
+              />
+            ) : null}
 
             {canModify && (
               <Button
@@ -663,13 +711,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   topBar: {
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Layout.screenPadding,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   backBtn: {
+    alignItems: 'center',
+    borderRadius: Radius.pill,
+    justifyContent: 'center',
+    minHeight: Layout.minTapTarget,
+    minWidth: Layout.minTapTarget,
     padding: Spacing.xs,
   },
   topBarTitle: {
@@ -679,18 +738,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   scrollContent: {
+    paddingBottom: Layout.bottomNavInset,
     paddingHorizontal: Layout.screenPadding,
-    paddingBottom: Spacing.xxxl,
-    gap: Spacing.md,
+    paddingTop: Spacing.md,
+    gap: Spacing.lg,
   },
   pressed: {
     opacity: 0.75,
   },
   urgentBanner: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#B3261E',
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.md,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     gap: Spacing.sm,
   },
   urgentBannerText: {
@@ -698,8 +760,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   overviewCard: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    gap: Spacing.lg,
   },
   overviewTopRow: {
     flexDirection: 'row',
@@ -715,7 +778,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
   },
@@ -726,7 +789,7 @@ const styles = StyleSheet.create({
   priorityPill: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
   },
   descBlock: {
     gap: 4,
@@ -747,8 +810,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#edf1f0',
-    paddingTop: Spacing.md,
+    borderTopColor: '#E3E7EC',
+    paddingTop: Spacing.lg,
   },
   metaCell: {
     width: '46%',
@@ -756,21 +819,29 @@ const styles = StyleSheet.create({
   },
   quickOpsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#edf1f0',
-    paddingTop: Spacing.md,
-    justifyContent: 'flex-end',
+    borderTopColor: '#E3E7EC',
+    paddingTop: Spacing.lg,
+    justifyContent: 'flex-start',
   },
   tabsBar: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#d6dfdf',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg,
+    elevation: 1,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
   },
   tabsScroll: {
     flexDirection: 'row',
   },
   tabItem: {
-    paddingVertical: Spacing.sm,
+    minHeight: Layout.minTapTarget,
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
     marginRight: Spacing.sm,
   },
@@ -825,8 +896,9 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   adminFooterCard: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    gap: Spacing.lg,
     marginTop: Spacing.md,
   },
   adminButtonsRow: {

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { protectRoute, authorizeRoles } = require('../middlewares/authMiddleware');
+const { requireVerifiedRole } = require('../middlewares/verifiedRoleMiddleware');
 const {
     getAdminStats,
     listOfficers,
@@ -16,7 +17,7 @@ const {
 
 // All admin routes are guarded for the ADMIN role only.
 // Case listing, detail and assignment reuse /api/officer/* (which also allows ADMIN).
-router.use(protectRoute, authorizeRoles('ADMIN'));
+router.use(protectRoute, authorizeRoles('ADMIN'), requireVerifiedRole);
 
 // Anonymized statistics
 router.get('/stats', getAdminStats);

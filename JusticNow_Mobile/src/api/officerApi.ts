@@ -81,6 +81,7 @@ export interface OfficerCaseItem {
   location: string | null;
   actionRequest: string | null;
   status: OfficerCaseStatus;
+  approvedAt: string | null;
   priority: CasePriority;
   escalated: boolean;
   escalatedAt: string | null;
@@ -186,6 +187,7 @@ export interface OfficerCaseDetail {
   location: string | null;
   actionRequest: string | null;
   status: OfficerCaseStatus;
+  approvedAt: string | null;
   priority: CasePriority;
   escalated: boolean;
   escalatedAt: string | null;
@@ -264,6 +266,12 @@ export function assignCase(
     method: 'PATCH',
     body: JSON.stringify(officerId ? { officerId } : {}),
   });
+}
+
+export function approveCase(
+  caseId: number | string
+): Promise<{ message: string; case: OfficerCaseDetail; statusHistory: CaseStatusHistoryItem; action: CaseActionItem }> {
+  return request(`/api/officer/cases/${encodeURIComponent(caseId)}/approve`, { method: 'PATCH' });
 }
 
 /**

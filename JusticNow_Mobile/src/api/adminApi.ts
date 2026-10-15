@@ -1,4 +1,4 @@
-import { request } from './client';
+import { API_URL, request } from './client';
 import { CasePriority } from './officerApi';
 import { OfficerCaseStatus } from '@/features/cases/statusUtils';
 
@@ -63,6 +63,29 @@ export interface AdminCategory {
   isActive: boolean;
   updatedAt: string;
   caseCount: number;
+}
+
+export type VerificationStatus = 'PENDING_VERIFICATION' | 'APPROVED' | 'REJECTED';
+
+export interface AccountVerification {
+  id: number;
+  name: string | null;
+  email: string;
+  role: 'OFFICER' | 'LAWYER';
+  contactNumber: string | null;
+  verificationStatus: VerificationStatus;
+  rejectionReason: string | null;
+  createdAt: string;
+  verificationProfile: Record<string, string | number | null> | null;
+  verificationDocuments: {
+    id: number;
+    documentType: string;
+    originalName: string;
+    mimeType: string;
+    sizeBytes: number;
+    status: VerificationStatus;
+    createdAt: string;
+  }[];
 }
 
 export interface OfficerInput {
@@ -154,6 +177,25 @@ export function updateCategory(code: ViolationCategoryCode, input: CategoryInput
     method: 'PATCH',
     body: JSON.stringify(input),
   });
+}
+
+export function getAccountVerifications(status = 'ALL'): Promise<AccountVerification[]> {
+  return request<AccountVerification[]>(`/api/admin/verifications?status=${encodeURIComponent(status)}`);
+}
+
+export function getAccountVerification(userId: number): Promise<AccountVerification> {
+  return request<AccountVerification>(`/api/admin/verifications/${userId}`);
+}
+
+export function updateAccountVerification(userId: number, action: 'approve' | 'reject' | 'request_documents', reason?: string) {
+  return request<{ message: string; user: AccountVerification }>(`/api/admin/verifications/${userId}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ action, reason }),
+  });
+}
+
+export function getVerificationDocumentUrl(userId: number, documentId: number) {
+  return `${API_URL}/api/admin/verifications/${userId}/documents/${documentId}`;
 }
 
 export const formatCategoryCode = (code?: string | null) =>

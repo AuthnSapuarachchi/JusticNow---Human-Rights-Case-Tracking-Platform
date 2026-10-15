@@ -8,6 +8,8 @@ export interface CaseSummary {
   category: string;
   status: CaseStatus;
   lastUpdated: string;
+  approved?: boolean;
+  officer?: { id: number; name: string | null } | null;
 }
 
 export interface StatusUpdate {
@@ -16,10 +18,13 @@ export interface StatusUpdate {
   label: string;
   timestamp: string;
   completed: boolean;
+  updatedBy?: 'OFFICER' | 'ADMIN' | 'CITIZEN' | 'SYSTEM';
 }
 
 export interface CaseDetail extends CaseSummary {
   description: string;
+  approved: boolean;
+  officer: { id: number; name: string | null } | null;
   requiredAction?: string;
   incidentDate?: string | null;
   location?: string | null;

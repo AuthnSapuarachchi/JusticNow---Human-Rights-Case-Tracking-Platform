@@ -1,23 +1,46 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 // 🚨 Added Platform to the imports here
 import { View, Text, Pressable, TouchableOpacity, StyleSheet, ScrollView, Alert, ActivityIndicator, Modal, Platform } from 'react-native';
 
 import { requestMultipart } from '@/api/client';
+import { getOfficers, Officer } from '@/api/messagingApi';
 
 interface StepFourProps {
   data: any;
   onPrev: () => void;
+  onSelectOfficer: (officerId: number) => void;
   onSubmit: () => void;
 }
 
-export default function StepFourReview({ data, onPrev, onSubmit }: StepFourProps) {
+export default function StepFourReview({ data, onPrev, onSelectOfficer, onSubmit }: StepFourProps) {
   const router = useRouter();
   const [isConfirmed, setIsConfirmed] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submittedCase, setSubmittedCase] = useState<{ caseId: number; trackingCode: string } | null>(null);
   const [submitStatus, setSubmitStatus] = useState('');
+  const [officers, setOfficers] = useState<Officer[]>([]);
+  const [isLoadingOfficers, setIsLoadingOfficers] = useState(true);
+  const [officersError, setOfficersError] = useState('');
+  const [isOfficerPickerOpen, setIsOfficerPickerOpen] = useState(false);
+
+  useEffect(() => {
+    let mounted = true;
+    getOfficers()
+      .then((results) => {
+        if (mounted) setOfficers(results);
+      })
+      .catch(() => {
+        if (mounted) setOfficersError('Unable to load active officers. Please try again later.');
+      })
+      .finally(() => {
+        if (mounted) setIsLoadingOfficers(false);
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  const selectedOfficer = officers.find((officer) => officer.id === data.officerId);
 
   const handleFinalSubmit = async () => {
     console.info('[Report] Submit Securely pressed', { isConfirmed, isSubmitting, hasPin: Boolean(data.pin) });
@@ -29,6 +52,11 @@ export default function StepFourReview({ data, onPrev, onSubmit }: StepFourProps
     if (!/^\d{4,12}$/.test(data.pin || '')) {
       setSubmitStatus('Please enter a private PIN between 4 and 12 digits.');
       Alert.alert('Action Required', 'Please enter a private PIN between 4 and 12 digits in the incident details step.');
+      return;
+    }
+    if (!selectedOfficer) {
+      setSubmitStatus('Please select an active officer for this case.');
+      Alert.alert('Action Required', 'Please select an active officer before submitting.');
       return;
     }
 
@@ -45,6 +73,7 @@ export default function StepFourReview({ data, onPrev, onSubmit }: StepFourProps
       formData.append('incidentDate', data.incidentDate || '');
       formData.append('location', data.location || '');
       formData.append('isAnonymous', String(data.isAnonymous !== false));
+      formData.append('officerId', String(selectedOfficer.id));
 
       // 2. Append the file based on the platform (Web vs Mobile)
       if (data.files && data.files.length > 0) {
@@ -109,6 +138,24 @@ export default function StepFourReview({ data, onPrev, onSubmit }: StepFourProps
 
           <Text style={styles.sectionHeader}>Incident Category</Text>
           <Text style={styles.valueText}>{data.category ? data.category.replace(/_/g, ' ') : 'Not selected'}</Text>
+
+          <View style={styles.divider} />
+
+          <Text style={styles.sectionHeader}>Assigned Officer</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Select Officer"
+            disabled={isLoadingOfficers || officers.length === 0 || isSubmitting}
+            onPress={() => setIsOfficerPickerOpen(true)}
+            style={styles.officerSelect}
+          >
+            <Text style={styles.officerSelectText}>
+              {isLoadingOfficers ? 'Loading active officers...' : selectedOfficer?.name || selectedOfficer?.email || 'Select Officer'}
+            </Text>
+            <Ionicons color="#475569" name="chevron-down" size={18} />
+          </Pressable>
+          {officersError ? <Text style={styles.officerError}>{officersError}</Text> : null}
+          {!isLoadingOfficers && officers.length === 0 && !officersError ? <Text style={styles.officerError}>No active officers are currently available.</Text> : null}
 
           <View style={styles.divider} />
 
@@ -210,6 +257,37 @@ export default function StepFourReview({ data, onPrev, onSubmit }: StepFourProps
           </View>
         </View>
       </Modal>
+      <Modal animationType="fade" onRequestClose={() => setIsOfficerPickerOpen(false)} transparent visible={isOfficerPickerOpen}>
+        <View style={styles.modalBackdrop}>
+          <View accessibilityViewIsModal style={styles.officerModal}>
+            <View style={styles.officerModalHeader}>
+              <Text style={styles.officerModalTitle}>Select Officer</Text>
+              <Pressable accessibilityLabel="Close officer selection" onPress={() => setIsOfficerPickerOpen(false)}>
+                <Ionicons color="#475569" name="close" size={22} />
+              </Pressable>
+            </View>
+            <ScrollView>
+              {officers.map((officer) => (
+                <Pressable
+                  accessibilityRole="button"
+                  key={officer.id}
+                  onPress={() => {
+                    onSelectOfficer(officer.id);
+                    setIsOfficerPickerOpen(false);
+                  }}
+                  style={styles.officerOption}
+                >
+                  <View>
+                    <Text style={styles.officerOptionName}>{officer.name || 'Case Officer'}</Text>
+                    <Text style={styles.officerOptionEmail}>{officer.email}</Text>
+                  </View>
+                  {selectedOfficer?.id === officer.id ? <Ionicons color="#16A34A" name="checkmark-circle" size={21} /> : null}
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -242,6 +320,9 @@ const styles = StyleSheet.create({
   },
   sectionHeader: { fontSize: 12, fontWeight: '600', color: '#64748B', textTransform: 'uppercase', marginBottom: 4 },
   valueText: { fontSize: 15, color: '#1E293B', marginBottom: 12 },
+  officerSelect: { alignItems: 'center', borderColor: '#CBD5E1', borderRadius: 8, borderWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, minHeight: 46, paddingHorizontal: 12 },
+  officerSelectText: { color: '#1E293B', flex: 1, fontSize: 14, marginRight: 8 },
+  officerError: { color: '#B91C1C', fontSize: 12, marginBottom: 10 },
   divider: { height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 },
 
   checkboxContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, paddingRight: 20 },
@@ -262,6 +343,12 @@ const styles = StyleSheet.create({
   submitStatus: { color: '#475569', fontSize: 13, marginTop: 10, textAlign: 'center' },
   modalBackdrop: { alignItems: 'center', backgroundColor: 'rgba(15, 23, 42, 0.55)', flex: 1, justifyContent: 'center', padding: 24 },
   successModal: { backgroundColor: '#fff', borderRadius: 18, maxWidth: 420, padding: 24, width: '100%' },
+  officerModal: { backgroundColor: '#fff', borderRadius: 12, maxHeight: '75%', maxWidth: 420, padding: 18, width: '100%' },
+  officerModalHeader: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12 },
+  officerModalTitle: { color: '#0F172A', fontSize: 18, fontWeight: '700' },
+  officerOption: { alignItems: 'center', borderBottomColor: '#E2E8F0', borderBottomWidth: 1, flexDirection: 'row', justifyContent: 'space-between', minHeight: 58, paddingVertical: 9 },
+  officerOptionName: { color: '#1E293B', fontSize: 14, fontWeight: '600' },
+  officerOptionEmail: { color: '#64748B', fontSize: 12, marginTop: 3 },
   successIcon: { alignItems: 'center', alignSelf: 'center', backgroundColor: '#DCFCE7', borderRadius: 40, height: 72, justifyContent: 'center', marginBottom: 16, width: 72 },
   successTitle: { color: '#0F172A', fontSize: 22, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
   successMessage: { color: '#475569', fontSize: 14, lineHeight: 20, marginBottom: 18, textAlign: 'center' },

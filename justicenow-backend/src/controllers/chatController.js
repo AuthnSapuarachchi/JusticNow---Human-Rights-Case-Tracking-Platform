@@ -32,10 +32,35 @@ const findCase = (caseId) => {
     return prisma.case.findFirst({ where: { trackingCode: { is: { code: String(caseId) } } } });
 };
 
+const canAccessCaseChat = (user, foundCase) => Boolean(
+    foundCase.approvedAt && (
+        (user.role === 'CITIZEN' && foundCase.reporterId === user.id) ||
+        (user.role === 'OFFICER' && foundCase.officerId === user.id)
+    )
+);
+
+const authorizeCaseChat = async (req, res, next) => {
+    try {
+        const foundCase = await findCase(req.params.caseId);
+        if (!foundCase) return res.status(404).json({ error: 'Case not found.' });
+        if (!canAccessCaseChat(req.user, foundCase)) {
+            return res.status(403).json({ error: 'Case messaging is available only to the citizen and assigned officer after approval.' });
+        }
+        req.caseRecord = foundCase;
+        next();
+    } catch (error) {
+        console.error('Unable to authorize case chat:', error);
+        res.status(500).json({ error: 'Unable to authorize case messaging.' });
+    }
+};
+
 const listMessages = async (req, res) => {
     try {
         const foundCase = await findCase(req.params.caseId);
         if (!foundCase) return res.status(404).json({ error: 'Case not found.' });
+        if (!canAccessCaseChat(req.user, foundCase)) {
+            return res.status(403).json({ error: 'Case messaging is available only to the citizen and assigned officer after approval.' });
+        }
 
         const messages = await prisma.message.findMany({
             where: { caseId: foundCase.id },
@@ -51,10 +76,17 @@ const listMessages = async (req, res) => {
 
 const createMessage = (io) => async (req, res) => {
     try {
-        const { content, attachment, recipientId } = req.body;
+        const { content, attachment } = req.body;
         const foundCase = await findCase(req.params.caseId);
         if (!foundCase) return res.status(404).json({ error: 'Case not found.' });
+        if (!canAccessCaseChat(req.user, foundCase)) {
+            return res.status(403).json({ error: 'Case messaging is available only to the citizen and assigned officer after approval.' });
+        }
         if (!content?.trim() && !attachment?.url) return res.status(400).json({ error: 'Message content or an attachment is required.' });
+
+        const caseParticipantId = req.user.id === foundCase.reporterId
+            ? foundCase.officerId
+            : foundCase.reporterId;
 
         const message = await prisma.message.create({
             data: {
@@ -63,7 +95,7 @@ const createMessage = (io) => async (req, res) => {
                 caseId: foundCase.id,
                 senderId: req.user.id,
                 officerId: req.user.role === 'OFFICER' ? req.user.id : null,
-                recipientId: recipientId ? Number(recipientId) : null,
+                recipientId: caseParticipantId,
                 attachmentUrl: attachment?.url || null,
                 attachmentName: attachment?.name || null,
                 attachmentType: attachment?.type || null,
@@ -89,4 +121,4 @@ const uploadAttachment = (req, res) => {
     });
 };
 
-module.exports = { createMessage, listMessages, uploadAttachment };
+module.exports = { authorizeCaseChat, createMessage, listMessages, uploadAttachment };

@@ -15,6 +15,7 @@ import { useAdminTabPress } from '../components';
 type IconName = React.ComponentProps<typeof Ionicons>['name'];
 
 const shortcuts: { label: string; hint: string; icon: IconName; href: string }[] = [
+  { label: 'Verify accounts', hint: 'Review pending officer and lawyer registrations', icon: 'shield-checkmark-outline', href: '/admin/verifications' },
   { label: 'Manage cases', hint: 'View all cases and assign officers', icon: 'briefcase-outline', href: '/admin/cases' },
   { label: 'Manage officers', hint: 'Create, edit and deactivate accounts', icon: 'people-outline', href: '/admin/officers' },
   { label: 'Organizations', hint: 'Legal-support organizations for referrals', icon: 'business-outline', href: '/admin/organizations' },
