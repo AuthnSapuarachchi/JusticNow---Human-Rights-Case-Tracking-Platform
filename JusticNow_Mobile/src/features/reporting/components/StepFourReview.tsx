@@ -80,8 +80,17 @@ export default function StepFourReview({ data, onPrev, onSelectOfficer, onSubmit
         const firstFile = data.files[0];
 
         if (Platform.OS === 'web') {
-          // 🚨 Web requires the raw HTML5 File object AND the file name as the 3rd parameter
-          formData.append('evidenceFile', firstFile.file, firstFile.name);
+          if (String(firstFile.uri || '').startsWith('blob:') && !(firstFile.file instanceof Blob)) {
+            throw new Error('This evidence photo is no longer available. Go back to Attach Evidence and select it again.');
+          }
+          const fileBlob = typeof Blob !== 'undefined' && firstFile.file instanceof Blob
+            ? firstFile.file
+            : await fetch(firstFile.uri).then(async (response) => {
+                if (!response.ok) throw new Error('Unable to read the selected evidence file.');
+                return response.blob();
+              });
+
+          formData.append('evidenceFile', fileBlob, firstFile.name);
         } else {
           // iOS/Android require the URI object map
           formData.append('evidenceFile', {

@@ -34,19 +34,24 @@ const pickImage = async () => {
         if (!webFile) {
           try {
             const response = await fetch(asset.uri);
+            if (!response.ok) throw new Error('The selected photo could not be read.');
             const blob = await response.blob();
             webFile = new File([blob], asset.fileName || `evidence_${Date.now()}.jpg`, {
               type: asset.mimeType || blob.type || 'application/octet-stream',
             });
           } catch (error) {
             console.error("Failed to fetch web blob:", error);
+            Alert.alert('Photo unavailable', 'Please choose the photo again before continuing.');
+            return;
           }
         }
 
-        // Create a guaranteed valid browser URL using the file data
-        if (webFile) {
-            displayUri = URL.createObjectURL(webFile);
+        if (!(webFile instanceof Blob)) {
+          Alert.alert('Photo unavailable', 'This photo could not be prepared for upload. Please choose it again.');
+          return;
         }
+        // Keep the File object for upload; the object URL is only for the preview.
+        displayUri = URL.createObjectURL(webFile);
       }
 
       const newFile = {
