@@ -9,7 +9,7 @@ import { NotificationToast } from '@/components/NotificationToast';
 import { useAuth } from '@/context/AuthContext';
 
 type NotificationContextValue = {
-  /** False for citizens and for officers still awaiting verification. */
+  /** False when signed out and for officers still awaiting verification. */
   enabled: boolean;
   items: AppNotification[];
   unreadCount: number;
@@ -35,7 +35,7 @@ function playChime() {
 }
 
 /**
- * Notifications for admins and officers.
+ * Notifications for admins, officers and citizens (updates on their own cases).
  *
  * The list comes from the server; "read" is tracked on this device as the time
  * the user last opened the bell. A chime plays once after login when there is
@@ -45,7 +45,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
   const { session } = useAuth();
   const user = session?.user;
   const isVerified = user?.verificationStatus === 'APPROVED' || user?.verificationStatus === 'NOT_REQUIRED' || !user?.verificationStatus;
-  const enabled = Boolean(user && (user.role === 'ADMIN' || (user.role === 'OFFICER' && isVerified)));
+  const enabled = Boolean(user && (user.role === 'ADMIN' || user.role === 'CITIZEN' || (user.role === 'OFFICER' && isVerified)));
   const userId = enabled ? user?.id : undefined;
 
   const [items, setItems] = useState<AppNotification[]>([]);

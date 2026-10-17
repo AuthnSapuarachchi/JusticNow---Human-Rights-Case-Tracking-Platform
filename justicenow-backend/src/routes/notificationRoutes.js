@@ -4,6 +4,6 @@ const { listNotifications } = require('../controllers/notificationController');
 
 const router = express.Router();
 
-router.get('/', protectRoute, authorizeRoles('ADMIN', 'OFFICER'), listNotifications);
+router.get('/', protectRoute, authorizeRoles('ADMIN', 'OFFICER', 'CITIZEN'), listNotifications);
 
 module.exports = router;
