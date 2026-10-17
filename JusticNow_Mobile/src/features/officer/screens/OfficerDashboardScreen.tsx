@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DashboardStats, getDashboardStats } from '@/api/officerApi';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useAuth } from '@/context/AuthContext';
 import { Badge, BrandLogo, Button, Card, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
@@ -166,15 +167,18 @@ export function OfficerDashboardScreen() {
             </View>
           </View>
 
-          <Pressable
-            accessibilityLabel="Log out"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={handleLogout}
-            style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
-          >
-            <Ionicons color={colors.textSecondary} name="log-out-outline" size={22} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <NotificationBell />
+            <Pressable
+              accessibilityLabel="Log out"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={handleLogout}
+              style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
+            >
+              <Ionicons color={colors.textSecondary} name="log-out-outline" size={22} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Officer Welcome Card */}
@@ -408,6 +412,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: Spacing.sm,
+  },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.sm,
   },
   headerLeft: {
     flexDirection: 'row',

@@ -6,6 +6,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AdminStats, formatCategoryCode, getAdminStats } from '@/api/adminApi';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useAuth } from '@/context/AuthContext';
 import { BrandLogo, Button, Card, Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
@@ -83,9 +84,12 @@ export function AdminDashboardScreen() {
             <Text style={styles.title} variant="pageTitle">Admin dashboard</Text>
             <Text color="textSecondary" style={styles.subtitle}>A quick view of platform activity and case workload.</Text>
           </View>
-          <Pressable accessibilityLabel="Log out" accessibilityRole="button" hitSlop={8} onPress={handleLogout}>
-            <Ionicons color={colors.textSecondary} name="log-out-outline" size={23} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <NotificationBell />
+            <Pressable accessibilityLabel="Log out" accessibilityRole="button" hitSlop={8} onPress={handleLogout} style={styles.logout}>
+              <Ionicons color={colors.textSecondary} name="log-out-outline" size={23} />
+            </Pressable>
+          </View>
         </View>
 
         <Card style={styles.welcome}>
@@ -276,6 +280,8 @@ const styles = StyleSheet.create({
   header: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xl },
   headerCopy: { flex: 1 },
   logo: { marginRight: Spacing.md },
+  headerActions: { alignItems: 'center', flexDirection: 'row', gap: Spacing.xs, marginLeft: Spacing.sm },
+  logout: { alignItems: 'center', height: Layout.minTapTarget, justifyContent: 'center', width: Layout.minTapTarget },
   eyebrow: { marginBottom: Spacing.xs },
   title: { marginBottom: Spacing.xs },
   subtitle: { maxWidth: 310 },

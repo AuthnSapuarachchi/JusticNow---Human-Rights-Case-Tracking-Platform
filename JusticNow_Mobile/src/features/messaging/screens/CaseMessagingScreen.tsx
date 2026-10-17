@@ -1,11 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useRouter } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, KeyboardAvoidingView, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
+import { Image } from 'expo-image';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { connectToChat, getMessages, markMessageAsRead, Message, sendMessage, uploadAttachment } from '@/api/messagingApi';
+import {
+  getMessages,
+  isImageAttachment,
+  markMessageAsRead,
+  Message,
+  resolveMediaUrl,
+  sendMessage,
+  subscribeToChat,
+  uploadAttachment,
+} from '@/api/messagingApi';
 import { useAuth } from '@/context/AuthContext';
 import { StateView, Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
@@ -16,6 +26,9 @@ interface CaseMessagingScreenProps {
   currentUserId: string;
   participantId?: string;
 }
+
+/** A message plus local-only state for bubbles that are still sending. */
+type ChatMessage = Message & { pending?: boolean; localPreview?: string };
 
 const formatTime = (createdAt: string) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(new Date(createdAt));
 
@@ -34,8 +47,8 @@ const formatDay = (createdAt: string) => {
 export function CaseMessagingScreen({ caseId, currentUserId, participantId }: CaseMessagingScreenProps) {
   const router = useRouter();
   const colors = useColors();
-  const listRef = useRef<FlatList<Message>>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
+  const listRef = useRef<FlatList<ChatMessage>>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [draft, setDraft] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
@@ -45,24 +58,46 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
   const [searchQuery, setSearchQuery] = useState('');
   const { session } = useAuth();
 
+  const [isLive, setIsLive] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
+
+  // Adds server messages without duplicates, keeping our own still-sending bubbles at the end.
+  const mergeMessages = useCallback((incoming: Message[]) => {
+    setMessages((current) => {
+      const byId = new Map(current.filter((item) => !item.pending).map((item) => [item.id, item]));
+      for (const message of incoming) byId.set(message.id, message);
+      const confirmed = [...byId.values()].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      return [...confirmed, ...current.filter((item) => item.pending)];
+    });
+  }, []);
+
+  const refresh = useCallback(() => getMessages(caseId).then(mergeMessages), [caseId, mergeMessages]);
+
   useEffect(() => {
     let isMounted = true;
     getMessages(caseId).then((loadedMessages) => {
-      if (isMounted) setMessages(loadedMessages);
+      if (isMounted) mergeMessages(loadedMessages);
     }).catch(() => {
       if (isMounted) setError('We could not load your messages. Please try again.');
     }).finally(() => {
       if (isMounted) setIsLoading(false);
     });
     return () => { isMounted = false; };
-  }, [caseId]);
+  }, [caseId, mergeMessages]);
 
+  // Live updates. After every (re)join we resync, so nothing sent while offline is lost.
+  useEffect(() => subscribeToChat(caseId, {
+    onMessage: (message) => mergeMessages([message]),
+    onJoined: () => { refresh().catch(() => undefined); },
+    onConnectionChange: setIsLive,
+  }), [caseId, mergeMessages, refresh]);
+
+  // Fallback for networks that block websockets: poll while the socket is down.
   useEffect(() => {
-    const socket = connectToChat(caseId, (message) => {
-      setMessages((currentMessages) => currentMessages.some((item) => item.id === message.id) ? currentMessages : [...currentMessages, message]);
-    }, session?.accessToken);
-    return () => { socket.emit('chat:leave', caseId); socket.disconnect(); };
-  }, [caseId, session?.accessToken]);
+    if (isLive) return;
+    const timer = setInterval(() => { refresh().catch(() => undefined); }, 4000);
+    return () => clearInterval(timer);
+  }, [isLive, refresh]);
 
   const isOfficer = session?.user.role === 'OFFICER';
   const counterpartName = useMemo(() => {
@@ -92,16 +127,41 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
     setIsSearchOpen(false);
   };
 
-  const handleSend = async (attachment?: { url: string; name?: string; type?: string }) => {
+  /** Shows the message immediately, then swaps in the server's copy (or removes it on failure). */
+  const addPending = (content: string, localPreview?: string): string => {
+    const tempId = `pending-${Date.now()}`;
+    setMessages((current) => [...current, {
+      id: tempId,
+      caseId,
+      senderId: currentUserId,
+      senderName: session?.user.name || 'You',
+      senderRole: isOfficer ? 'OFFICER' : 'CITIZEN',
+      content,
+      createdAt: new Date().toISOString(),
+      isRead: false,
+      pending: true,
+      localPreview,
+      attachment: localPreview ? { url: localPreview, type: 'image/jpeg' } : null,
+    }]);
+    return tempId;
+  };
+
+  const settlePending = (tempId: string, sent?: Message) => {
+    setMessages((current) => current.filter((item) => item.id !== tempId));
+    if (sent) mergeMessages([sent]);
+  };
+
+  const handleSend = async () => {
     const content = draft.trim();
-    if ((!content && !attachment) || isSending) return;
+    if (!content || isSending) return;
     setIsSending(true);
     setError(null);
     setDraft('');
+    const tempId = addPending(content);
     try {
-      const sentMessage = await sendMessage(caseId, { content, attachment, recipientId: participantId });
-      setMessages((currentMessages) => currentMessages.some((item) => item.id === sentMessage.id) ? currentMessages : [...currentMessages, sentMessage]);
+      settlePending(tempId, await sendMessage(caseId, { content, recipientId: participantId }));
     } catch {
+      settlePending(tempId);
       setDraft(content);
       setError('Your message was not sent. Please try again.');
     } finally {
@@ -110,16 +170,31 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
   };
 
   const handleAttachment = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      setError('Allow photo access in your device settings to share a photo.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
     if (result.canceled) return;
     const asset = result.assets[0];
     setIsUploading(true);
     setError(null);
+    const caption = draft.trim();
+    setDraft('');
+    const tempId = addPending(caption, asset.uri);
     try {
-      const attachment = await uploadAttachment(caseId, { uri: asset.uri, name: asset.fileName || `attachment-${Date.now()}.jpg`, type: asset.mimeType || 'image/jpeg' }, session?.accessToken);
-      await handleSend(attachment);
-    } catch {
-      setError('We could not share this file. Please try again.');
+      const attachment = await uploadAttachment(caseId, {
+        uri: asset.uri,
+        name: asset.fileName || `photo-${Date.now()}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+        file: asset.file,
+      });
+      settlePending(tempId, await sendMessage(caseId, { content: caption, attachment, recipientId: participantId }));
+    } catch (uploadError) {
+      settlePending(tempId);
+      setDraft(caption);
+      setError(uploadError instanceof Error && uploadError.message ? uploadError.message : 'We could not share this photo. Please try again.');
     } finally {
       setIsUploading(false);
     }
@@ -144,8 +219,10 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
           <View style={styles.headerCopy}>
             <Text numberOfLines={1} variant="bodyStrong">{counterpartName}</Text>
             <View style={styles.caseLabel}>
-              <Ionicons name="lock-closed" size={12} color={colors.success} />
-              <Text color="textSecondary" numberOfLines={1} variant="caption">Case {caseId} · Encrypted</Text>
+              <View style={[styles.liveDot, { backgroundColor: isLive ? colors.success : colors.warning }]} />
+              <Text color="textSecondary" numberOfLines={1} variant="caption">
+                {isLive ? 'Live' : 'Reconnecting…'} · Case {caseId}
+              </Text>
             </View>
           </View>
           <Pressable
@@ -213,7 +290,7 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
                   {showDay ? (
                     <Text color="textTertiary" style={styles.dayDivider} variant="caption">{formatDay(item.createdAt)}</Text>
                   ) : null}
-                  <Pressable onPress={() => handleMarkRead(item)} style={[styles.messageRow, isSent && styles.sentRow, !isSearchMatch && styles.dimmed]}>
+                  <Pressable onPress={() => handleMarkRead(item)} style={[styles.messageRow, isSent && styles.sentRow, !isSearchMatch && styles.dimmed, item.pending && styles.sending]}>
                     {!item.isRead && !isSent ? <View accessibilityLabel="Unread" style={[styles.unreadDot, { backgroundColor: colors.primary }]} /> : null}
                     <View
                       style={[
@@ -228,9 +305,30 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
                           {item.senderName || item.senderRole}
                         </Text>
                       ) : null}
-                      {item.attachment ? (
+                      {item.attachment && isImageAttachment(item.attachment) ? (
+                        <Pressable
+                          accessibilityHint="Opens the photo full screen"
+                          accessibilityLabel="Shared photo"
+                          accessibilityRole="imagebutton"
+                          disabled={item.pending}
+                          onPress={() => item.attachment && setViewerUrl(resolveMediaUrl(item.attachment.url))}
+                          style={styles.photoWrap}
+                        >
+                          <Image
+                            contentFit="cover"
+                            source={{ uri: item.localPreview ?? resolveMediaUrl(item.attachment.url) }}
+                            style={[styles.photo, { backgroundColor: colors.surfaceMuted }]}
+                            transition={150}
+                          />
+                          {item.pending ? (
+                            <View style={styles.photoOverlay}>
+                              <ActivityIndicator color="#FFFFFF" />
+                            </View>
+                          ) : null}
+                        </Pressable>
+                      ) : item.attachment ? (
                         <View style={styles.attachment}>
-                          <Ionicons name={item.attachment.type?.startsWith('image/') ? 'image-outline' : 'document-outline'} size={18} color={isSent ? colors.textOnPrimary : colors.primary} />
+                          <Ionicons name="document-outline" size={18} color={isSent ? colors.textOnPrimary : colors.primary} />
                           <Text numberOfLines={1} style={[styles.attachmentText, { color: isSent ? colors.textOnPrimary : colors.primary }]} variant="label">
                             {item.attachment.name || 'Shared attachment'}
                           </Text>
@@ -243,7 +341,14 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
                         <Text style={[styles.timestamp, { color: isSent ? colors.primarySoft : colors.textTertiary }]} variant="caption">
                           {formatTime(item.createdAt)}
                         </Text>
-                        {isSent ? <Ionicons name={item.isRead ? 'checkmark-done' : 'checkmark'} size={16} color={colors.primarySoft} /> : null}
+                        {isSent ? (
+                          <Ionicons
+                            accessibilityLabel={item.pending ? 'Sending' : 'Sent'}
+                            color={colors.primarySoft}
+                            name={item.pending ? 'time-outline' : 'checkmark-done'}
+                            size={16}
+                          />
+                        ) : null}
                       </View>
                     </View>
                   </Pressable>
@@ -295,6 +400,21 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
           </Pressable>
         </View>
       </KeyboardAvoidingView>
+
+      <Modal animationType="fade" onRequestClose={() => setViewerUrl(null)} transparent visible={viewerUrl !== null}>
+        <View style={styles.viewer}>
+          {viewerUrl ? <Image contentFit="contain" source={{ uri: viewerUrl }} style={styles.viewerImage} /> : null}
+          <Pressable
+            accessibilityLabel="Close photo"
+            accessibilityRole="button"
+            hitSlop={8}
+            onPress={() => setViewerUrl(null)}
+            style={({ pressed }) => [styles.viewerClose, pressed && styles.pressed]}
+          >
+            <Ionicons color="#FFFFFF" name="close" size={28} />
+          </Pressable>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -322,6 +442,14 @@ const styles = StyleSheet.create({
   receivedBubble: { borderBottomLeftRadius: Radius.sm / 2, borderWidth: StyleSheet.hairlineWidth },
   sentBubble: { borderBottomRightRadius: Radius.sm / 2 },
   senderRole: { fontWeight: '700', marginBottom: 2, textTransform: 'capitalize' },
+  sending: { opacity: 0.7 },
+  liveDot: { borderRadius: 4, height: 8, width: 8 },
+  photoWrap: { borderRadius: Radius.md, marginBottom: Spacing.xs, overflow: 'hidden' },
+  photo: { height: 200, width: 220 },
+  photoOverlay: { bottom: 0, left: 0, position: 'absolute', right: 0, top: 0, alignItems: 'center', backgroundColor: 'rgba(13, 27, 42, 0.35)', justifyContent: 'center' },
+  viewer: { alignItems: 'center', backgroundColor: 'rgba(0, 0, 0, 0.94)', flex: 1, justifyContent: 'center' },
+  viewerImage: { height: '85%', width: '100%' },
+  viewerClose: { alignItems: 'center', height: 48, justifyContent: 'center', position: 'absolute', right: Spacing.lg, top: Spacing.huge, width: 48 },
   attachment: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.xs },
   attachmentText: { flexShrink: 1 },
   highlight: { backgroundColor: '#FBEEDC', color: '#0D1B2A', fontWeight: '700' },

@@ -4,6 +4,7 @@ export { Button, type ButtonProps } from './Button';
 export { Card, type CardProps } from './Card';
 export { ContentTextField, type ContentTextFieldProps } from './ContentTextField';
 export { FilterChip, type FilterChipProps } from './FilterChip';
+export { HorizontalScroller, type HorizontalScrollerProps } from './HorizontalScroller';
 export { IconTile, type IconTileProps } from './IconTile';
 export { LanguageToggle, type LanguageToggleProps } from './LanguageToggle';
 export { ScreenHeader, type ScreenHeaderProps } from './ScreenHeader';

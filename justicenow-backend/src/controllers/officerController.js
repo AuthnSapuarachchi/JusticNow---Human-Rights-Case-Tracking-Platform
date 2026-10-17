@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const { notifyUser, notifyAdmins } = require('../utils/notify');
 
 /**
  * Validate that case ID is a positive integer
@@ -365,6 +366,17 @@ const assignCase = async (req, res) => {
             }),
         ]);
 
+        if (targetOfficerId !== req.user.id) {
+            notifyUser(req.app.get('io'), targetOfficerId, {
+                type: 'CASE_ASSIGNED',
+                title: 'New case assigned to you',
+                body: `${updatedCase.trackingCode?.code || `CASE-${caseId}`} — review and approve it`,
+                href: `/officer/${caseId}`,
+            });
+        }
+        // The admin "needs an officer" list just shrank.
+        notifyAdmins(req.app.get('io'), { type: 'REFRESH', silent: true });
+
         res.json({
             message: `Case assigned to ${officerDisplayName}.`,
             case: updatedCase,
@@ -424,6 +436,7 @@ const approveCase = async (req, res) => {
             }),
         ]);
 
+        notifyUser(req.app.get('io'), req.user.id, { type: 'REFRESH', silent: true });
         res.json({ message: 'Case approved. Private messaging is now available.', case: updatedCase, statusHistory, action });
     } catch (error) {
         console.error('Error approving case:', error);

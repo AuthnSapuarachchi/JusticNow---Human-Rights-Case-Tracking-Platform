@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
@@ -10,6 +10,7 @@ import {
   Button,
   Card,
   FilterChip,
+  HorizontalScroller,
   IconTile,
   Layout,
   ScreenHeader,
@@ -109,11 +110,7 @@ export function LegalDirectoryScreen() {
         {/* All three filter groups share one scrollable row so the list of
             results starts sooner - three stacked rows cost too much vertical
             space before anything useful was on screen. */}
-        <ScrollView
-          contentContainerStyle={styles.filterRow}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-        >
+        <HorizontalScroller accessibilityLabel={t('directory.title')} style={styles.filterRow}>
           {CATEGORY_FILTERS.map((value) => (
             <FilterChip
               key={`category-${value}`}
@@ -144,7 +141,7 @@ export function LegalDirectoryScreen() {
               selected={filters.language === value}
             />
           ))}
-        </ScrollView>
+        </HorizontalScroller>
       </View>
 
       {isLoading ? (
@@ -277,14 +274,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: Layout.screenPadding,
     paddingTop: Spacing.md,
   },
+  // Bleed past the body padding so chips scroll to the screen edge, not into a hard cut-off.
   filterRow: {
-    alignItems: 'center',
-    gap: Spacing.sm,
-    paddingRight: Layout.screenPadding,
+    marginHorizontal: -Layout.screenPadding,
   },
   filterDivider: {
-    alignSelf: 'stretch',
-    marginVertical: Spacing.xs,
+    height: 28,
+    marginHorizontal: Spacing.xs,
     width: 1,
   },
   list: {

@@ -1,4 +1,5 @@
 const prisma = require('../config/db');
+const { notifyUser } = require('../utils/notify');
 
 const caseWhere = (caseId) => {
     const numericId = Number(caseId);
@@ -104,6 +105,13 @@ const createMessage = (io) => async (req, res) => {
         });
         const serialized = serializeMessage(message);
         io.to(`case:${foundCase.id}`).emit('chat:message', serialized);
+        notifyUser(io, caseParticipantId, {
+            type: 'NEW_MESSAGE',
+            title: `New message from ${message.sender?.name || (req.user.role === 'OFFICER' ? 'your officer' : 'a citizen')}`,
+            body: serialized.content ? serialized.content.slice(0, 120) : 'Sent a photo',
+            href: `/cases/${foundCase.id}/messages`,
+            caseId: String(foundCase.id),
+        });
         res.status(201).json(serialized);
     } catch (error) {
         console.error('Unable to create message:', error);
