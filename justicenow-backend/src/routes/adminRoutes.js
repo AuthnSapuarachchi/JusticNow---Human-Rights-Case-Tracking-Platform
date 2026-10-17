@@ -14,6 +14,7 @@ const {
     listCategories,
     updateCategory,
 } = require('../controllers/adminController');
+const { listComplaints, getComplaint, updateComplaint } = require('../controllers/conductController');
 
 // All admin routes are guarded for the ADMIN role only.
 // Case listing, detail and assignment reuse /api/officer/* (which also allows ADMIN).
@@ -36,5 +37,10 @@ router.delete('/organizations/:id', deleteOrganization);
 // Violation categories
 router.get('/categories', listCategories);
 router.patch('/categories/:code', updateCategory);
+
+// Citizen reports about officer conduct
+router.get('/complaints', listComplaints);
+router.get('/complaints/:id', getComplaint);
+router.patch('/complaints/:id', updateComplaint);
 
 module.exports = router;

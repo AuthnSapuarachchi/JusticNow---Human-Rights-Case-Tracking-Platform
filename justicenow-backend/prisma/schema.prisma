@@ -66,6 +66,28 @@ enum ViolationCategory {
   OTHER
 }
 
+// Why a citizen reported their case officer.
+enum ComplaintReason {
+  NO_RESPONSE
+  UNPROFESSIONAL
+  PRESSURE_OR_THREAT
+  PRIVACY_BREACH
+  ASKED_FOR_PAYMENT
+  OTHER
+}
+
+enum ComplaintStatus {
+  OPEN
+  UNDER_REVIEW
+  ACTION_TAKEN
+  DISMISSED
+}
+
+enum StaffMessageKind {
+  MESSAGE
+  WARNING
+}
+
 // --- 1. ADMINISTRATIVE TABLES ---
 model User {
   id                 Int                @id @default(autoincrement())
@@ -92,6 +114,12 @@ model User {
   caseInfoRequests CaseInfoRequest[]
   caseReferrals    CaseReferral[]
   caseActions      CaseAction[]
+
+  complaintsFiled    OfficerComplaint[] @relation("ComplaintReporter")
+  complaintsAgainst  OfficerComplaint[] @relation("ComplaintOfficer")
+  complaintsReviewed OfficerComplaint[] @relation("ComplaintReviewer")
+  staffThread        StaffMessage[]     @relation("StaffThread")
+  staffMessagesSent  StaffMessage[]     @relation("StaffMessageSender")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -185,6 +213,7 @@ model Case {
   infoRequests   CaseInfoRequest[]
   referrals      CaseReferral[]
   actions        CaseAction[]
+  complaints     OfficerComplaint[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -360,6 +389,57 @@ model CaseAction {
   createdAt  DateTime       @default(now())
 
   @@map("caseaction")
+}
+
+// --- 5. OFFICER CONDUCT (citizen complaints + admin↔officer channel) ---
+
+// A citizen's report that their case officer acted irresponsibly. Admin-only:
+// the officer never sees complaints, so the citizen is protected from retaliation.
+model OfficerComplaint {
+  id             Int             @id @default(autoincrement())
+  caseId         Int
+  case           Case            @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  reporterId     Int
+  reporter       User            @relation("ComplaintReporter", fields: [reporterId], references: [id], onDelete: Cascade)
+  // The officer at the time of the complaint — kept even if the case is reassigned later.
+  officerId      Int
+  officer        User            @relation("ComplaintOfficer", fields: [officerId], references: [id], onDelete: Cascade)
+  reason         ComplaintReason
+  details        String          @db.Text
+  status         ComplaintStatus @default(OPEN)
+  // Shown to the citizen once an admin reviews the complaint.
+  resolutionNote String?         @db.Text
+  reviewedById   Int?
+  reviewedBy     User?           @relation("ComplaintReviewer", fields: [reviewedById], references: [id], onDelete: SetNull)
+  reviewedAt     DateTime?
+  staffMessages  StaffMessage[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@index([officerId])
+  @@index([status, createdAt])
+  @@index([caseId, reporterId])
+  @@map("officercomplaint")
+}
+
+// One conversation per officer, shared by every admin. `officerId` is the thread key.
+model StaffMessage {
+  id              Int               @id @default(autoincrement())
+  officerId       Int
+  officer         User              @relation("StaffThread", fields: [officerId], references: [id], onDelete: Cascade)
+  senderId        Int
+  sender          User              @relation("StaffMessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+  kind            StaffMessageKind  @default(MESSAGE)
+  content         String            @db.Text
+  // Admin-side link to the complaint a warning answers. Never sent to the officer.
+  complaintId     Int?
+  complaint       OfficerComplaint? @relation(fields: [complaintId], references: [id], onDelete: SetNull)
+  readByOfficerAt DateTime?
+  readByAdminAt   DateTime?
+  createdAt       DateTime          @default(now())
+
+  @@index([officerId, createdAt])
+  @@map("staffmessage")
 }
 
 // --- 4. ADMIN-MANAGED CONFIGURATION ---

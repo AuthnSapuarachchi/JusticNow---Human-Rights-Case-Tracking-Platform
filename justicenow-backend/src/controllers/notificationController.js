@@ -33,9 +33,26 @@ const latestMessages = async (recipientId, since, fallbackSender) => {
     }));
 };
 
-/** Admin: officers waiting for approval, and open cases nobody is handling yet. */
+/** Unread admin↔officer messages, one entry per thread (its latest unread message). */
+const unreadStaffMessages = async (where) => {
+    const unread = await prisma.staffMessage.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: 100,
+        include: { officer: { select: { name: true } } },
+    });
+    const latestPerThread = new Map();
+    const warningThreads = new Set();
+    for (const message of unread) {
+        if (!latestPerThread.has(message.officerId)) latestPerThread.set(message.officerId, message);
+        if (message.kind === 'WARNING') warningThreads.add(message.officerId);
+    }
+    return { latest: [...latestPerThread.values()].slice(0, LIMIT), warningThreads };
+};
+
+/** Admin: officers waiting for approval, open cases nobody is handling yet, new officer reports and officer replies. */
 const adminNotifications = async () => {
-    const [pendingOfficers, unassignedCases] = await Promise.all([
+    const [pendingOfficers, unassignedCases, newComplaints, replies] = await Promise.all([
         prisma.user.findMany({
             where: { role: 'OFFICER', verificationStatus: 'PENDING_VERIFICATION' },
             orderBy: { createdAt: 'desc' },
@@ -48,9 +65,33 @@ const adminNotifications = async () => {
             take: LIMIT,
             include: { trackingCode: true },
         }),
+        prisma.officerComplaint.findMany({
+            where: { status: 'OPEN' },
+            orderBy: { createdAt: 'desc' },
+            take: LIMIT,
+            include: { case: { include: { trackingCode: true } }, officer: { select: { name: true } } },
+        }),
+        // Officers only ever write in their own thread, and an admin's own messages are marked read on send.
+        unreadStaffMessages({ readByAdminAt: null }),
     ]);
 
     return [
+        ...newComplaints.map((c) => ({
+            id: `complaint-${c.id}`,
+            type: 'OFFICER_COMPLAINT',
+            title: `Officer reported: ${c.officer?.name || 'an officer'}`,
+            body: `${caseRef(c.case)} · ${label(c.reason)}`,
+            href: `/admin/complaints/${c.id}`,
+            createdAt: c.createdAt,
+        })),
+        ...replies.latest.map((m) => ({
+            id: `staff-reply-${m.id}`,
+            type: 'STAFF_REPLY',
+            title: `Reply from ${m.officer?.name || 'an officer'}`,
+            body: m.content.slice(0, 120),
+            href: `/admin/officer-chat/${m.officerId}`,
+            createdAt: m.createdAt,
+        })),
         ...pendingOfficers.map((user) => ({
             id: `officer-pending-${user.id}`,
             type: 'OFFICER_PENDING',
@@ -70,9 +111,9 @@ const adminNotifications = async () => {
     ];
 };
 
-/** Officer: newly assigned cases awaiting approval, and recent messages from citizens. */
+/** Officer: newly assigned cases awaiting approval, recent messages from citizens, and unread admin messages. */
 const officerNotifications = async (officerId) => {
-    const [newCases, messages] = await Promise.all([
+    const [newCases, messages, staff] = await Promise.all([
         prisma.case.findMany({
             where: { officerId, approvedAt: null, status: OPEN_STATUSES },
             orderBy: { createdAt: 'desc' },
@@ -80,9 +121,21 @@ const officerNotifications = async (officerId) => {
             include: { trackingCode: true },
         }),
         latestMessages(officerId, recentSince(), 'a citizen'),
+        unreadStaffMessages({ officerId, readByOfficerAt: null }),
     ]);
 
     return [
+        ...staff.latest.map((m) => {
+            const isWarning = staff.warningThreads.has(m.officerId);
+            return {
+                id: `staff-message-${m.id}`,
+                type: isWarning ? 'STAFF_WARNING' : 'STAFF_MESSAGE',
+                title: isWarning ? 'Formal warning from JusticeNow Admin' : 'Message from JusticeNow Admin',
+                body: m.content.slice(0, 120),
+                href: '/officer/admin-chat',
+                createdAt: m.createdAt,
+            };
+        }),
         ...newCases.map((c) => ({
             id: `case-assigned-${c.id}`,
             type: 'CASE_ASSIGNED',
@@ -95,10 +148,10 @@ const officerNotifications = async (officerId) => {
     ];
 };
 
-/** Citizen: status changes an officer made on their own cases, and recent messages from their officer. */
+/** Citizen: status changes an officer made on their own cases, recent messages from their officer, and outcomes of their officer reports. */
 const citizenNotifications = async (userId) => {
     const since = recentSince();
-    const [statusChanges, messages] = await Promise.all([
+    const [statusChanges, messages, reviewedComplaints] = await Promise.all([
         prisma.caseStatusHistory.findMany({
             where: { case: { reporterId: userId }, changedById: { not: userId }, createdAt: { gte: since } },
             orderBy: { createdAt: 'desc' },
@@ -106,9 +159,23 @@ const citizenNotifications = async (userId) => {
             include: { case: { include: { trackingCode: true } } },
         }),
         latestMessages(userId, since, 'your officer'),
+        prisma.officerComplaint.findMany({
+            where: { reporterId: userId, reviewedAt: { gte: since } },
+            orderBy: { reviewedAt: 'desc' },
+            take: LIMIT,
+            include: { case: { include: { trackingCode: true } } },
+        }),
     ]);
 
     return [
+        ...reviewedComplaints.map((c) => ({
+            id: `complaint-${c.id}-${c.status}`,
+            type: 'COMPLAINT_UPDATED',
+            title: c.status === 'UNDER_REVIEW' ? 'Your report is being reviewed' : 'Your report was reviewed',
+            body: `${caseRef(c.case)} · Open your case to see what happened.`,
+            href: `/cases/${c.caseId}`,
+            createdAt: c.reviewedAt,
+        })),
         ...statusChanges.map((h) => ({
             id: `case-status-${h.id}`,
             ...citizenCaseUpdate(h.caseId, caseRef(h.case), h.toStatus),

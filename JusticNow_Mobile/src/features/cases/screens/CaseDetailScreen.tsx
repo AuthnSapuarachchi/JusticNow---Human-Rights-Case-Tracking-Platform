@@ -5,9 +5,11 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CaseDetail, StatusUpdate, getCaseDetail, getCaseStatus } from '@/api/caseApi';
+import { COMPLAINT_STATUS, CitizenComplaint, complaintReasonLabel, getCaseComplaints, isComplaintActive } from '@/api/conductApi';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
-import { Button, Card, StateView, Text, useColors } from '@/design-system';
+import { Badge, Button, Card, StateView, Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
+import { ReportOfficerSheet } from '@/features/cases/components/ReportOfficerSheet';
 import { StatusPill } from '@/features/cases/components/StatusPill';
 import { formatCaseDate, formatCaseDateTime, getStatusConfig } from '@/features/cases/statusUtils';
 
@@ -20,9 +22,15 @@ export function CaseDetailScreen({ caseId }: CaseDetailScreenProps) {
   const [timeline, setTimeline] = useState<StatusUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [complaints, setComplaints] = useState<CitizenComplaint[]>([]);
+  const [isReporting, setIsReporting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
+    // Loaded on its own so a failure here never hides the case itself.
+    getCaseComplaints(caseId)
+      .then((items) => { if (mounted) setComplaints(items); })
+      .catch(() => undefined);
     Promise.all([getCaseDetail(caseId), getCaseStatus(caseId)])
       .then(([caseData, statusData]) => {
         if (mounted) {
@@ -76,6 +84,8 @@ export function CaseDetailScreen({ caseId }: CaseDetailScreenProps) {
   const status = getStatusConfig(detail.status);
   const canMessageOfficer = Boolean(detail.approved && detail.officer);
   const officerName = detail.officer?.name || 'your officer';
+  const latestComplaint = complaints[0];
+  const hasActiveComplaint = Boolean(latestComplaint && isComplaintActive(latestComplaint.status));
 
   return (
     <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: colors.canvas }]}>
@@ -131,6 +141,44 @@ export function CaseDetailScreen({ caseId }: CaseDetailScreenProps) {
           )}
         </View>
 
+        {latestComplaint ? (
+          <Card style={styles.complaint}>
+            <View style={styles.complaintTop}>
+              <Ionicons color={colors.textSecondary} name="flag-outline" size={20} />
+              <Text style={styles.flex} variant="bodyStrong">Your report about {officerName}</Text>
+            </View>
+            <Badge
+              icon={COMPLAINT_STATUS[latestComplaint.status].icon}
+              label={COMPLAINT_STATUS[latestComplaint.status].label}
+              tone={COMPLAINT_STATUS[latestComplaint.status].tone}
+            />
+            <Text color="textSecondary" variant="caption">
+              {complaintReasonLabel(latestComplaint.reason)} · Sent {formatCaseDate(latestComplaint.createdAt)}
+            </Text>
+            {latestComplaint.resolutionNote ? (
+              <View style={[styles.resolution, { backgroundColor: colors.surfaceMuted }]}>
+                <Text color="textSecondary" variant="caption">Message from JusticeNow admins</Text>
+                <Text>{latestComplaint.resolutionNote}</Text>
+              </View>
+            ) : hasActiveComplaint ? (
+              <Text color="textSecondary" variant="caption">
+                An admin will look into this. Your officer cannot see your report.
+              </Text>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {detail.officer && !hasActiveComplaint ? (
+          <Button
+            fullWidth
+            icon="flag-outline"
+            iconPosition="leading"
+            label={latestComplaint ? 'Report another problem' : 'Report a problem with your officer'}
+            onPress={() => setIsReporting(true)}
+            variant="ghost"
+          />
+        ) : null}
+
         <Text style={styles.sectionTitle} variant="heading">Progress</Text>
         <Card>
           {timeline.length === 0 ? (
@@ -160,6 +208,18 @@ export function CaseDetailScreen({ caseId }: CaseDetailScreenProps) {
         </Card>
       </ScrollView>
       <BottomNavBar activeTab={NavTab.Cases} onTabPress={handleTabPress} />
+      {detail.officer ? (
+        <ReportOfficerSheet
+          caseId={caseId}
+          officerName={officerName}
+          onClose={() => setIsReporting(false)}
+          onSubmitted={(complaint) => {
+            setComplaints((current) => [complaint, ...current]);
+            setIsReporting(false);
+          }}
+          visible={isReporting}
+        />
+      ) : null}
     </SafeAreaView>
   );
 }
@@ -185,6 +245,9 @@ const styles = StyleSheet.create({
   description: { borderTopWidth: StyleSheet.hairlineWidth, gap: Spacing.xs, paddingTop: Spacing.lg },
   messageAction: { marginTop: Spacing.lg },
   lockedNote: { alignItems: 'center', borderRadius: Radius.md, flexDirection: 'row', gap: Spacing.md, padding: Spacing.lg },
+  complaint: { gap: Spacing.sm, marginTop: Spacing.lg },
+  complaintTop: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm },
+  resolution: { borderRadius: Radius.md, gap: Spacing.xs, padding: Spacing.md },
   sectionTitle: { marginBottom: Spacing.md, marginTop: Spacing.xxxl },
   timelineRow: { flexDirection: 'row' },
   rail: { alignItems: 'center', width: 36 },

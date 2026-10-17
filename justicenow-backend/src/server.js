@@ -14,6 +14,7 @@ const adminRoutes = require('./routes/adminRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
 const notificationRoutes = require('./routes/notificationRoutes');
+const staffChatRoutes = require('./routes/staffChatRoutes');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const prisma = require('./config/db');
@@ -51,6 +52,7 @@ app.use('/api/admin', adminRoutes);
 app.use('/api/admin/verifications', verificationRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/staff-chat', staffChatRoutes);
 
 io.use((socket, next) => {
     try {

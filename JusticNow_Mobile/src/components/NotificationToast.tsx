@@ -8,7 +8,7 @@ import type { AppNotification } from '@/api/notificationsApi';
 import { Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 
-import { notificationIcon } from './notificationIcon';
+import { isUrgentNotification, notificationIcon } from './notificationIcon';
 
 const VISIBLE_MS = 5000;
 
@@ -43,7 +43,7 @@ export function NotificationToast({ notification, onDismiss }: { notification: A
         }}
         style={({ pressed }) => [styles.toast, { backgroundColor: colors.surfaceInverse }, pressed && styles.pressed]}
       >
-        <View style={[styles.icon, { backgroundColor: colors.primary }]}>
+        <View style={[styles.icon, { backgroundColor: isUrgentNotification(notification.type) ? colors.danger : colors.primary }]}>
           <Ionicons color={colors.textOnPrimary} name={notificationIcon(notification.type)} size={20} />
         </View>
         <View style={styles.copy}>

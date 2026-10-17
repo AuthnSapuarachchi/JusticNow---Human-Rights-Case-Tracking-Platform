@@ -8,7 +8,7 @@ import { StateView, Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useNotifications } from '@/context/NotificationContext';
 
-import { notificationIcon } from './notificationIcon';
+import { isUrgentNotification, notificationIcon } from './notificationIcon';
 
 const timeAgo = (iso: string) => {
   const minutes = Math.round((Date.now() - new Date(iso).getTime()) / 60000);
@@ -73,6 +73,7 @@ export function NotificationBell() {
             ListEmptyComponent={<StateView icon="notifications-off-outline" kind="empty" message="New activity will appear here as it happens." title="You're all caught up" />}
             renderItem={({ item }) => {
               const fresh = unreadIds.has(item.id);
+              const urgent = isUrgentNotification(item.type);
               return (
                 <Pressable
                   accessibilityRole="button"
@@ -82,8 +83,8 @@ export function NotificationBell() {
                   }}
                   style={({ pressed }) => [styles.row, { backgroundColor: fresh ? colors.primarySoft : 'transparent' }, pressed && styles.pressed]}
                 >
-                  <View style={[styles.rowIcon, { backgroundColor: fresh ? colors.surface : colors.surfaceMuted }]}>
-                    <Ionicons color={colors.primary} name={notificationIcon(item.type)} size={20} />
+                  <View style={[styles.rowIcon, { backgroundColor: urgent ? colors.dangerSoft : fresh ? colors.surface : colors.surfaceMuted }]}>
+                    <Ionicons color={urgent ? colors.danger : colors.primary} name={notificationIcon(item.type)} size={20} />
                   </View>
                   <View style={styles.rowCopy}>
                     <Text variant="bodyStrong">{item.title}</Text>

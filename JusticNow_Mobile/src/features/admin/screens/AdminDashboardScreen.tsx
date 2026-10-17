@@ -19,6 +19,8 @@ const shortcuts: { label: string; hint: string; icon: IconName; href: string }[]
   { label: 'Verify accounts', hint: 'Review pending officer and lawyer registrations', icon: 'shield-checkmark-outline', href: '/admin/verifications' },
   { label: 'Manage cases', hint: 'View all cases and assign officers', icon: 'briefcase-outline', href: '/admin/cases' },
   { label: 'Manage officers', hint: 'Create, edit and deactivate accounts', icon: 'people-outline', href: '/admin/officers' },
+  { label: 'Officer reports', hint: 'Citizen reports about officer conduct', icon: 'flag-outline', href: '/admin/complaints' },
+  { label: 'Officer messages', hint: 'Messages and warnings to officers', icon: 'chatbubbles-outline', href: '/messages' },
   { label: 'Organizations', hint: 'Legal-support organizations for referrals', icon: 'business-outline', href: '/admin/organizations' },
   { label: 'Violation categories', hint: 'Labels and availability for reports', icon: 'pricetags-outline', href: '/admin/categories' },
 ];

@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -18,6 +19,7 @@ import { AdminHeader, OfficerFormModal, useAdminTabPress } from '../components';
 
 export function OfficerManagementScreen() {
   const colors = useColors();
+  const router = useRouter();
   const handleTabPress = useAdminTabPress();
 
   const [officers, setOfficers] = useState<AdminOfficer[]>([]);
@@ -163,6 +165,13 @@ export function OfficerManagementScreen() {
                 </Text>
                 <View style={styles.actions}>
                   <Button
+                    accessibilityLabel={`Message ${item.name || item.email}`}
+                    icon="chatbubble-outline"
+                    label="Message"
+                    onPress={() => router.push(`/admin/officer-chat/${item.id}` as any)}
+                    variant="ghost"
+                  />
+                  <Button
                     icon="create-outline"
                     label="Edit"
                     onPress={() => {
@@ -209,6 +218,6 @@ const styles = StyleSheet.create({
   cardTop: { alignItems: 'center', flexDirection: 'row', gap: Spacing.md },
   avatar: { alignItems: 'center', borderRadius: 20, height: 40, justifyContent: 'center', width: 40 },
   cardText: { flex: 1, gap: 2 },
-  cardFooter: { alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', justifyContent: 'space-between', paddingTop: Spacing.sm },
-  actions: { flexDirection: 'row', gap: Spacing.xs },
+  cardFooter: { alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs, justifyContent: 'space-between', paddingTop: Spacing.sm },
+  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.xs },
 });

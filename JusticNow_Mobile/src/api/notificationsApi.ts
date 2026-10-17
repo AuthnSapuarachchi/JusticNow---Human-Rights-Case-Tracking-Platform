@@ -1,6 +1,18 @@
 import { request } from './client';
 
-export type NotificationType = 'OFFICER_PENDING' | 'CASE_UNASSIGNED' | 'CASE_ASSIGNED' | 'CASE_UPDATED' | 'NEW_MESSAGE' | 'ACCOUNT_APPROVED' | 'REFRESH';
+export type NotificationType =
+  | 'OFFICER_PENDING'
+  | 'CASE_UNASSIGNED'
+  | 'CASE_ASSIGNED'
+  | 'CASE_UPDATED'
+  | 'NEW_MESSAGE'
+  | 'ACCOUNT_APPROVED'
+  | 'OFFICER_COMPLAINT'
+  | 'COMPLAINT_UPDATED'
+  | 'STAFF_MESSAGE'
+  | 'STAFF_WARNING'
+  | 'STAFF_REPLY'
+  | 'REFRESH';
 
 export interface AppNotification {
   id: string;
