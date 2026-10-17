@@ -1,6 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 const prisma = require('../config/db');
+const { notifyAdmins, notifyUser } = require('../utils/notify');
 const { verificationDirectory } = require('../middlewares/verificationUpload');
 
 const parseId = (value) => {
@@ -95,6 +96,12 @@ const updateVerification = async (req, res) => {
             select: { id: true, name: true, email: true, role: true, verificationStatus: true, rejectionReason: true },
         });
     });
+    const io = req.app.get('io');
+    // Clears the "awaiting approval" item from every admin's bell.
+    notifyAdmins(io, { type: 'REFRESH', silent: true });
+    if (action === 'approve') {
+        notifyUser(io, userId, { type: 'ACCOUNT_APPROVED', title: 'Your account is approved', body: 'You now have full access to the officer workspace.', href: '/officer' });
+    }
     res.json({ message: action === 'approve' ? 'Account approved.' : action === 'reject' ? 'Registration rejected.' : 'Additional documents requested.', user: updated });
 };
 

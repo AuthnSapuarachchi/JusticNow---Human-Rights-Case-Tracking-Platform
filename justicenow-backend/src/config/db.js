@@ -21,6 +21,12 @@ const pool = new Pool({
 
 const adapter = new PrismaPg(pool);
 
-const prisma = new PrismaClient({ adapter });
+// The remote Supabase database can take several seconds to open a fresh
+// connection, which exceeds Prisma's 2s default for starting a transaction
+// (error P2028) and made sign-ups fail after the server had been idle.
+const prisma = new PrismaClient({
+  adapter,
+  transactionOptions: { maxWait: 15000, timeout: 20000 },
+});
 
 module.exports = prisma;

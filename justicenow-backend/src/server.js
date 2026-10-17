@@ -13,6 +13,7 @@ const officerRoutes = require('./routes/officerRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const verificationRoutes = require('./routes/verificationRoutes');
 const categoryRoutes = require('./routes/categoryRoutes');
+const notificationRoutes = require('./routes/notificationRoutes');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const prisma = require('./config/db');
@@ -49,6 +50,7 @@ app.use('/api/officer', officerRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/admin/verifications', verificationRoutes);
 app.use('/api/categories', categoryRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 io.use((socket, next) => {
     try {
@@ -61,6 +63,10 @@ io.use((socket, next) => {
 });
 
 io.on('connection', (socket) => {
+    // Personal and role rooms used by utils/notify.js.
+    socket.join(`user:${socket.user.id}`);
+    socket.join(`role:${socket.user.role}`);
+
     socket.on('chat:join', async (caseId) => {
         try {
             const numericCaseId = Number(caseId);
@@ -72,12 +78,22 @@ io.on('connection', (socket) => {
                 (user.role === 'CITIZEN' && foundCase.reporterId === user.id) ||
                 (user.role === 'OFFICER' && foundCase.officerId === user.id)
             );
-            if (isParticipant && foundCase.approvedAt) socket.join(`case:${foundCase.id}`);
+            if (isParticipant && foundCase.approvedAt) {
+                socket.join(`case:${foundCase.id}`);
+                // Lets the client confirm it is live (and resync anything it missed while offline).
+                socket.emit('chat:joined', String(foundCase.id));
+            }
         } catch (error) {
             console.error('Unable to join case chat:', error);
         }
     });
-    socket.on('chat:leave', (caseId) => socket.leave(`case:${caseId}`));
+    socket.on('chat:leave', async (caseId) => {
+        const numericCaseId = Number(caseId);
+        if (Number.isInteger(numericCaseId) && numericCaseId > 0) return socket.leave(`case:${numericCaseId}`);
+        // Tracking-code joins were stored under the numeric id, so resolve it before leaving.
+        const foundCase = await prisma.case.findFirst({ where: { trackingCode: { is: { code: String(caseId) } } } }).catch(() => null);
+        if (foundCase) socket.leave(`case:${foundCase.id}`);
+    });
 });
 
 const PORT = process.env.PORT || 5000;

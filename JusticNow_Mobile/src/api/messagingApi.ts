@@ -1,6 +1,7 @@
-import { io, type Socket } from 'socket.io-client';
+import { Platform } from 'react-native';
 
-import { API_URL, request } from './client';
+import { API_URL, request, requestMultipart } from './client';
+import { getSocket } from './socket';
 
 export interface Message {
   id: string;
@@ -21,12 +22,56 @@ export interface SendMessagePayload {
   recipientId?: string;
 }
 
-export const connectToChat = (caseId: string, onMessage: (message: Message) => void, accessToken?: string): Socket => {
-  const socket = io(API_URL, { transports: ['websocket'], auth: { token: accessToken } });
-  socket.on('connect', () => socket.emit('chat:join', caseId));
-  socket.on('chat:message', onMessage);
-  return socket;
+type ChatHandlers = {
+  onMessage: (message: Message) => void;
+  /** Fired after every successful (re)join — use it to fetch anything missed while offline. */
+  onJoined?: () => void;
+  onConnectionChange?: (connected: boolean) => void;
 };
+
+/**
+ * Live updates for one case conversation over the shared app socket.
+ * Re-joins the room automatically after every reconnect. Returns an unsubscribe.
+ */
+export function subscribeToChat(caseId: string, { onMessage, onJoined, onConnectionChange }: ChatHandlers): () => void {
+  const socket = getSocket();
+  // The server answers with the numeric id even when we joined by tracking code.
+  let joinedId: string | null = null;
+
+  const join = () => {
+    socket.emit('chat:join', caseId);
+    onConnectionChange?.(true);
+  };
+  const handleJoined = (id: string) => {
+    joinedId = id;
+    onJoined?.();
+  };
+  const handleMessage = (message: Message) => {
+    if (message.caseId === caseId || message.caseId === joinedId) onMessage(message);
+  };
+  const handleDisconnect = () => onConnectionChange?.(false);
+
+  socket.on('connect', join);
+  socket.on('disconnect', handleDisconnect);
+  socket.on('chat:joined', handleJoined);
+  socket.on('chat:message', handleMessage);
+  if (socket.connected) join();
+  else onConnectionChange?.(false);
+
+  return () => {
+    socket.emit('chat:leave', caseId);
+    socket.off('connect', join);
+    socket.off('disconnect', handleDisconnect);
+    socket.off('chat:joined', handleJoined);
+    socket.off('chat:message', handleMessage);
+  };
+}
+
+/** Attachment URLs are stored relative to the API (e.g. /uploads/x.jpg). */
+export const resolveMediaUrl = (url: string) => (/^https?:\/\//.test(url) ? url : `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`);
+
+export const isImageAttachment = (attachment?: { url: string; type?: string; name?: string } | null) =>
+  Boolean(attachment && (attachment.type?.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic)$/i.test(attachment.name || attachment.url)));
 
 export async function getMessages(caseId: string): Promise<Message[]> {
   return request<Message[]>(`/api/cases/${encodeURIComponent(caseId)}/messages`);
@@ -40,16 +85,17 @@ export async function markMessageAsRead(messageId: string): Promise<void> {
   await request<void>(`/api/messages/${encodeURIComponent(messageId)}/read`, { method: 'PUT' });
 }
 
-export async function uploadAttachment(caseId: string, file: { uri: string; name: string; type: string }, accessToken?: string) {
+export async function uploadAttachment(caseId: string, file: { uri: string; name: string; type: string; file?: Blob }) {
   const formData = new FormData();
-  formData.append('file', { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
-  const response = await fetch(`${API_URL}/api/cases/${encodeURIComponent(caseId)}/messages/upload`, {
-    method: 'POST',
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    body: formData,
-  });
-  if (!response.ok) throw new Error('Unable to upload this attachment.');
-  return response.json() as Promise<{ url: string; name: string; type: string }>;
+  if (Platform.OS === 'web') {
+    // Browsers need real file data; the { uri } shape below only works natively.
+    const blob: Blob = file.file ?? (await (await fetch(file.uri)).blob());
+    formData.append('file', blob, file.name);
+  } else {
+    formData.append('file', { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
+  }
+  // requestMultipart refreshes an expired token and surfaces the server's error message.
+  return requestMultipart<{ url: string; name: string; type: string }>(`/api/cases/${encodeURIComponent(caseId)}/messages/upload`, formData);
 }
 
 export interface Officer {

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native';
 
-import { Layout, Radius, Spacing } from '../spacing';
+import { Radius, Spacing } from '../spacing';
 import { useColors } from '../use-colors';
 import { Text } from './Text';
 
@@ -15,7 +15,7 @@ export type ButtonProps = {
    */
   label: string;
   onPress: () => void;
-  variant?: 'primary' | 'secondary' | 'ghost';
+  variant?: 'primary' | 'secondary' | 'ghost' | 'danger';
   /** Optional icon, always shown alongside the label rather than replacing it. */
   icon?: IoniconName;
   iconPosition?: 'leading' | 'trailing';
@@ -23,7 +23,12 @@ export type ButtonProps = {
   loading?: boolean;
   /** Stretches to the container width. Primary CTAs in the designs are full width. */
   fullWidth?: boolean;
+  /** Overrides the spoken label when the visible text needs more context. */
+  accessibilityLabel?: string;
 };
+
+/** Comfortable for older users and anyone with reduced dexterity. */
+const BUTTON_HEIGHT = 52;
 
 export function Button({
   label,
@@ -34,18 +39,25 @@ export function Button({
   disabled = false,
   loading = false,
   fullWidth = false,
+  accessibilityLabel,
 }: ButtonProps) {
   const colors = useColors();
   const isDisabled = disabled || loading;
 
   const background =
-    variant === 'primary' ? colors.primary : variant === 'secondary' ? colors.surface : 'transparent';
-  const foreground = variant === 'primary' ? colors.textOnPrimary : colors.primary;
+    variant === 'primary'
+      ? colors.primary
+      : variant === 'danger'
+        ? colors.danger
+        : variant === 'secondary'
+          ? colors.surface
+          : 'transparent';
+  const foreground = variant === 'primary' || variant === 'danger' ? colors.textOnPrimary : colors.primary;
 
   return (
     <Pressable
       accessibilityRole="button"
-      accessibilityLabel={label}
+      accessibilityLabel={accessibilityLabel ?? label}
       accessibilityState={{ disabled: isDisabled, busy: loading }}
       disabled={isDisabled}
       onPress={onPress}
@@ -55,20 +67,18 @@ export function Button({
         variant === 'secondary' && { borderColor: colors.borderStrong, borderWidth: 1 },
         fullWidth && styles.fullWidth,
         pressed && !isDisabled && styles.pressed,
-        isDisabled && styles.disabled,
+        disabled && !loading && styles.disabled,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={foreground} size="small" />
-      ) : (
-        <View style={styles.content}>
-          {icon && iconPosition === 'leading' ? <Ionicons color={foreground} name={icon} size={18} /> : null}
-          <Text style={{ color: foreground }} variant="label">
-            {label}
-          </Text>
-          {icon && iconPosition === 'trailing' ? <Ionicons color={foreground} name={icon} size={18} /> : null}
-        </View>
-      )}
+      {/* The label stays mounted while loading so the button never changes size. */}
+      <View style={[styles.content, loading && styles.hidden]}>
+        {icon && iconPosition === 'leading' ? <Ionicons color={foreground} name={icon} size={20} /> : null}
+        <Text numberOfLines={1} style={[styles.label, { color: foreground }]} variant="label">
+          {label}
+        </Text>
+        {icon && iconPosition === 'trailing' ? <Ionicons color={foreground} name={icon} size={20} /> : null}
+      </View>
+      {loading ? <ActivityIndicator color={foreground} size="small" style={StyleSheet.absoluteFill} /> : null}
     </Pressable>
   );
 }
@@ -76,29 +86,33 @@ export function Button({
 const styles = StyleSheet.create({
   button: {
     alignItems: 'center',
-    borderRadius: Radius.pill,
-    elevation: 1,
+    borderRadius: Radius.md,
     justifyContent: 'center',
-    minHeight: Layout.minTapTarget,
-    paddingHorizontal: Spacing.lg,
+    minHeight: BUTTON_HEIGHT,
+    paddingHorizontal: Spacing.xl,
     paddingVertical: Spacing.md,
-    shadowColor: '#0D1B2A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 5,
   },
   content: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: Spacing.sm,
+    justifyContent: 'center',
+  },
+  label: {
+    fontSize: 16,
+    flexShrink: 1,
+  },
+  hidden: {
+    opacity: 0,
   },
   fullWidth: {
     alignSelf: 'stretch',
   },
   pressed: {
-    opacity: 0.8,
+    opacity: 0.85,
+    transform: [{ scale: 0.99 }],
   },
   disabled: {
-    opacity: 0.45,
+    opacity: 0.4,
   },
 });

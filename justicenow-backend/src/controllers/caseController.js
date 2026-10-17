@@ -2,6 +2,7 @@ require('dotenv').config();
 const bcrypt = require('bcryptjs');
 const { createClient } = require('@supabase/supabase-js');
 const prisma = require('../config/db');
+const { notifyUser } = require('../utils/notify');
 
 let supabase;
 
@@ -111,6 +112,13 @@ const submitCase = async (req, res) => {
                 })
             },
             include: { trackingCode: true, evidence: true }
+        });
+
+        notifyUser(req.app.get('io'), selectedOfficer.id, {
+            type: 'CASE_ASSIGNED',
+            title: 'New case assigned to you',
+            body: `${newCase.trackingCode.code} · ${String(newCase.category).replace(/_/g, ' ').toLowerCase()} — review and approve it`,
+            href: `/officer/${newCase.id}`,
         });
 
         res.status(201).json({

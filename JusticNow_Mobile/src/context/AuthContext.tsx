@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { request, requestMultipart } from '@/api/client';
+import { closeSocket } from '@/api/socket';
 
 const SESSION_KEY = 'justicenow.session';
 
@@ -39,7 +40,8 @@ type AuthContextValue = {
   session: Session | null;
   isLoading: boolean;
   login: (credentials: Credentials) => Promise<void>;
-  register: (details: Registration) => Promise<void>;
+  /** Resolves with the platform-issued Officer ID for officer registrations. */
+  register: (details: Registration) => Promise<{ officerId?: string | null }>;
   logout: () => Promise<void>;
 };
 
@@ -77,7 +79,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         method: 'POST',
         body: JSON.stringify({ name: details.name.trim(), email: details.email.trim(), password: details.password, role: 'CITIZEN' }),
       });
-      return;
+      return {};
     }
 
     const formData = new FormData();
@@ -96,10 +98,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
         formData.append('documents', { uri: document.uri, name: document.name, type: document.type } as any);
       }
     }
-    await requestMultipart('/api/auth/register', formData);
+    const result = await requestMultipart<{ officerId?: string | null }>('/api/auth/register', formData);
+    return { officerId: result.officerId ?? null };
   };
 
   const logout = async () => {
+    // Drop the live connection so the next user does not inherit this one's rooms.
+    closeSocket();
     await AsyncStorage.removeItem(SESSION_KEY);
     setSession(null);
   };

@@ -29,7 +29,7 @@ export const Layout = {
   /** Horizontal padding used by every screen. Matches the merged screens. */
   screenPadding: Spacing.xl,
   /** Bottom padding so scroll content clears the fixed BottomNavBar. */
-  bottomNavInset: 105,
+  bottomNavInset: 120,
   /** Accessibility floor for anything tappable. From our user research. */
   minTapTarget: 44,
   /** Hairline used for card and row separators. */
