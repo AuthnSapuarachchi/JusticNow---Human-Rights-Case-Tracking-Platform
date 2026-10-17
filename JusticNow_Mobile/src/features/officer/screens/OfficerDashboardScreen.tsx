@@ -88,8 +88,8 @@ export function OfficerDashboardScreen() {
       label: 'Assigned to Me',
       value: stats?.totalAssigned ?? 0,
       icon: 'person-outline' as const,
-      color: '#2875d0',
-      bg: '#e7f0fc',
+      color: '#0F2B5B',
+      bg: '#DCE3EF',
       params: { assignedToMe: 'true' },
     },
     {

@@ -5,7 +5,7 @@ import { CaseStatus } from '@/api/caseApi';
 
 export const statusConfig: Record<CaseStatus, { label: string; color: string; background: string; icon: 'time-outline' | 'sync-outline' | 'checkmark-circle-outline' }> = {
   pending: { label: 'Pending', color: '#B4671F', background: '#FBEEDC', icon: 'time-outline' },
-  'in-progress': { label: 'In progress', color: '#1355D6', background: '#DCE7FB', icon: 'sync-outline' },
+  'in-progress': { label: 'In progress', color: '#0F2B5B', background: '#DCE3EF', icon: 'sync-outline' },
   resolved: { label: 'Resolved', color: '#2E7D5B', background: '#DFF0E8', icon: 'checkmark-circle-outline' },
 };
 
@@ -25,9 +25,9 @@ export const officerStatusConfig: Record<
   OfficerCaseStatus,
   { label: string; color: string; background: string; icon: 'time-outline' | 'sync-outline' | 'checkmark-circle-outline' | 'alert-circle-outline' | 'lock-closed-outline' | 'search-outline' }
 > = {
-  NEW: { label: 'New', color: '#1355D6', background: '#DCE7FB', icon: 'time-outline' },
+  NEW: { label: 'New', color: '#0F2B5B', background: '#DCE3EF', icon: 'time-outline' },
   SUBMITTED: { label: 'Submitted', color: '#B4671F', background: '#FBEEDC', icon: 'time-outline' },
-  UNDER_REVIEW: { label: 'Under review', color: '#1355D6', background: '#DCE7FB', icon: 'sync-outline' },
+  UNDER_REVIEW: { label: 'Under review', color: '#0F2B5B', background: '#DCE3EF', icon: 'sync-outline' },
   INVESTIGATING: { label: 'Investigating', color: '#5B3FC7', background: '#EFEAFD', icon: 'search-outline' },
   WAITING_FOR_USER: { label: 'Waiting for user', color: '#B4671F', background: '#FBEEDC', icon: 'alert-circle-outline' },
   ACTION_REQUIRED: { label: 'Action required', color: '#B3261E', background: '#FBE4E2', icon: 'alert-circle-outline' },

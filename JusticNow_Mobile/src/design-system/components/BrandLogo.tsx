@@ -8,7 +8,8 @@ export type BrandLogoProps = {
 };
 
 /**
- * The JusticeNow logo (scales mark + wordmark). Use it wherever the app
+ * The JusticeNow logo (gold scales on a navy rounded tile, transparent
+ * corners). Use it wherever the app
  * identifies itself — auth screens and dashboard headers — instead of a
  * generic icon.
  */
@@ -18,7 +19,7 @@ export function BrandLogo({ size = 64, style }: BrandLogoProps) {
       accessibilityLabel="JusticeNow logo"
       accessibilityRole="image"
       contentFit="contain"
-      source={require('@/assets/images/justiceNow-favicon.png')}
+      source={require('@/assets/images/justiceNow-logo.png')}
       style={[{ height: size, width: size }, style]}
     />
   );

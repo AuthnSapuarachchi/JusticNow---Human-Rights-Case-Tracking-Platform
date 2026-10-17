@@ -54,7 +54,7 @@ export function ActionHistoryFeed({
   const getActionMeta = (type: CaseActionType) => {
     switch (type) {
       case 'ASSIGNED':
-        return { icon: 'person-add' as const, color: '#2875d0', bg: '#e7f0fc', label: 'Assigned' };
+        return { icon: 'person-add' as const, color: '#0F2B5B', bg: '#DCE3EF', label: 'Assigned' };
       case 'STATUS_CHANGED':
         return { icon: 'sync' as const, color: '#5b3fc7', bg: '#efeafd', label: 'Status Changed' };
       case 'NOTE_ADDED':
@@ -70,7 +70,7 @@ export function ActionHistoryFeed({
       case 'CONTACTED_USER':
         return { icon: 'call' as const, color: '#28725b', bg: '#e2f2ed', label: 'Contacted User' };
       case 'CONTACTED_AUTHORITY':
-        return { icon: 'shield' as const, color: '#2875d0', bg: '#e7f0fc', label: 'Contacted Authority' };
+        return { icon: 'shield' as const, color: '#0F2B5B', bg: '#DCE3EF', label: 'Contacted Authority' };
       case 'FIELD_VISIT':
         return { icon: 'location' as const, color: '#5b3fc7', bg: '#efeafd', label: 'Field Visit' };
       case 'EVIDENCE_REVIEWED':

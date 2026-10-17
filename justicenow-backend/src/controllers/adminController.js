@@ -188,6 +188,8 @@ const createOfficer = async (req, res) => {
                 email: normalizedEmail,
                 password: hashedPassword,
                 role: 'OFFICER',
+                // Created by an admin, so already vetted — skip the self-registration review queue.
+                verificationStatus: 'APPROVED',
                 organizationId: org.value ?? null,
             },
             select: officerSelect,
