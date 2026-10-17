@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AdminStats, formatCategoryCode, getAdminStats } from '@/api/adminApi';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
 import { useAuth } from '@/context/AuthContext';
-import { Button, Card, Text, useColors } from '@/design-system';
+import { BrandLogo, Button, Card, Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { formatCaseDate, getOfficerStatusConfig } from '@/features/cases/statusUtils';
 import { useAdminTabPress } from '../components';
@@ -77,6 +77,7 @@ export function AdminDashboardScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.header}>
+          <BrandLogo size={52} style={styles.logo} />
           <View style={styles.headerCopy}>
             <Text color="primary" style={styles.eyebrow} variant="eyebrow">JUSTICENOW ADMIN</Text>
             <Text style={styles.title} variant="pageTitle">Admin dashboard</Text>
@@ -274,6 +275,7 @@ const styles = StyleSheet.create({
   content: { padding: Layout.screenPadding, paddingBottom: 120, paddingTop: Spacing.xl },
   header: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xl },
   headerCopy: { flex: 1 },
+  logo: { marginRight: Spacing.md },
   eyebrow: { marginBottom: Spacing.xs },
   title: { marginBottom: Spacing.xs },
   subtitle: { maxWidth: 310 },
