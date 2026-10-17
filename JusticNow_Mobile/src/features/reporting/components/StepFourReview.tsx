@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { View, Pressable, StyleSheet, ScrollView, Modal, Platform } from 'react-native';
 
 import { requestMultipart } from '@/api/client';
+import { nativeFormDataFile } from '@/api/formDataFile';
 import { getOfficers, Officer } from '@/api/messagingApi';
 import { Button, Card, Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
@@ -98,12 +99,7 @@ export default function StepFourReview({ data, onPrev, onSelectOfficer, onSubmit
 
           formData.append('evidenceFile', fileBlob, firstFile.name);
         } else {
-          // iOS/Android require the URI object map
-          formData.append('evidenceFile', {
-            uri: firstFile.uri,
-            name: firstFile.name,
-            type: firstFile.type,
-          } as any);
+          formData.append('evidenceFile', nativeFormDataFile(firstFile.uri, firstFile.name, firstFile.type));
         }
       }
 

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 
 import { API_URL, request, requestMultipart } from './client';
+import { nativeFormDataFile } from './formDataFile';
 import { getSocket } from './socket';
 
 export interface Message {
@@ -92,7 +93,7 @@ export async function uploadAttachment(caseId: string, file: { uri: string; name
     const blob: Blob = file.file ?? (await (await fetch(file.uri)).blob());
     formData.append('file', blob, file.name);
   } else {
-    formData.append('file', { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
+    formData.append('file', nativeFormDataFile(file.uri, file.name, file.type));
   }
   // requestMultipart refreshes an expired token and surfaces the server's error message.
   return requestMultipart<{ url: string; name: string; type: string }>(`/api/cases/${encodeURIComponent(caseId)}/messages/upload`, formData);
