@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, SafeAreaView, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 
 // Importing your 4 step components
 import StepOneIncident from '../components/StepOneIncident';
@@ -20,6 +21,7 @@ const emptyReportDraft = {
 };
 
 export default function ReportFlowScreen() {
+  const router = useRouter();
   const [currentStep, setCurrentStep] = useState(1);
   const [isDraftLoaded, setIsDraftLoaded] = useState(false);
   const [formData, setFormData] = useState(emptyReportDraft);
@@ -81,7 +83,7 @@ export default function ReportFlowScreen() {
       </View>
 
       <View style={styles.content}>
-        {currentStep === 1 && <StepOneIncident data={formData} updateData={setFormData} onNext={nextStep} />}
+        {currentStep === 1 && <StepOneIncident data={formData} updateData={setFormData} onNext={nextStep} onBack={() => (router.canGoBack() ? router.back() : router.replace('/'))} />}
         {currentStep === 2 && <StepTwoCategory data={formData} updateData={setFormData} onNext={nextStep} onPrev={prevStep} />}
         {currentStep === 3 && <StepThreeEvidence data={formData} updateData={setFormData} onNext={nextStep} onPrev={prevStep} />}
         {currentStep === 4 && <StepFourReview data={formData} onPrev={prevStep} onSelectOfficer={(officerId) => setFormData((current) => ({ ...current, officerId }))} onSubmit={handleSubmitFinal} />}

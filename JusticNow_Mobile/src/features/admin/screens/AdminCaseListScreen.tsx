@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
@@ -33,21 +33,31 @@ export function AdminCaseListScreen() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [unassignedOnly, setUnassignedOnly] = useState(params.assignment === 'unassigned');
   const [statusFilter, setStatusFilter] = useState(params.status || 'ALL');
   const [urgentOnly, setUrgentOnly] = useState(params.priority === 'URGENT');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const latestRequest = useRef(0);
+  const isFetchingMore = useRef(false);
 
   const [assignTarget, setAssignTarget] = useState<OfficerCaseItem | null>(null);
 
   const fetchCases = useCallback(
     async (isRefresh = false, targetPage = 1) => {
+      if (targetPage > 1 && isFetchingMore.current) return;
+      if (targetPage > 1) isFetchingMore.current = true;
+      else isFetchingMore.current = false;
+      const requestId = ++latestRequest.current;
+
       if (isRefresh) setRefreshing(true);
       else if (targetPage === 1) setLoading(true);
+      else setLoadingMore(true);
       setError(null);
 
       try {
@@ -57,24 +67,38 @@ export function AdminCaseListScreen() {
           assignedToMe: unassignedOnly ? false : undefined,
           status: statusFilter !== 'ALL' ? statusFilter : undefined,
           priority: urgentOnly ? 'URGENT' : undefined,
-          search: searchQuery.trim() || undefined,
+          search: debouncedSearch.trim() || undefined,
           sortBy: 'updatedAt',
           sortOrder: 'desc',
         });
 
-        setCases((prev) => (targetPage === 1 ? res.cases : [...prev, ...res.cases]));
+        if (requestId !== latestRequest.current) return;
+        setCases((prev) => {
+          if (targetPage === 1) return res.cases;
+          const existingIds = new Set(prev.map((item) => String(item.id)));
+          return [...prev, ...res.cases.filter((item) => !existingIds.has(String(item.id)))];
+        });
         setTotal(res.pagination.total);
         setHasMore(res.pagination.page < res.pagination.totalPages);
         setPage(targetPage);
       } catch (err: any) {
-        setError(err?.message || 'Unable to load cases.');
+        if (requestId === latestRequest.current) setError(err?.message || 'Unable to load cases.');
       } finally {
-        setLoading(false);
-        setRefreshing(false);
+        if (targetPage > 1 && requestId === latestRequest.current) isFetchingMore.current = false;
+        if (requestId === latestRequest.current) {
+          setLoading(false);
+          setRefreshing(false);
+          setLoadingMore(false);
+        }
       }
     },
-    [unassignedOnly, statusFilter, urgentOnly, searchQuery]
+    [unassignedOnly, statusFilter, urgentOnly, debouncedSearch]
   );
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
 
   useEffect(() => {
     fetchCases(false, 1);
@@ -103,26 +127,30 @@ export function AdminCaseListScreen() {
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-        <View style={styles.chipGroup}>
-          <FilterChip label="All Cases" onPress={() => setUnassignedOnly(false)} selected={!unassignedOnly} />
-          <FilterChip label="Unassigned" onPress={() => setUnassignedOnly(true)} selected={unassignedOnly} />
-          <FilterChip label="Urgent Only" onPress={() => setUrgentOnly((v) => !v)} selected={urgentOnly} />
-        </View>
-      </ScrollView>
+      <View style={styles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+          <View style={styles.chipGroup}>
+            <FilterChip label="All Cases" onPress={() => setUnassignedOnly(false)} selected={!unassignedOnly} />
+            <FilterChip label="Unassigned" onPress={() => setUnassignedOnly(true)} selected={unassignedOnly} />
+            <FilterChip label="Urgent Only" onPress={() => setUrgentOnly((v) => !v)} selected={urgentOnly} />
+          </View>
+        </ScrollView>
+      </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-        <View style={styles.chipGroup}>
-          {statusOptions.map((opt) => (
-            <FilterChip
-              key={opt.value}
-              label={opt.label}
-              onPress={() => setStatusFilter(opt.value)}
-              selected={statusFilter === opt.value}
-            />
-          ))}
-        </View>
-      </ScrollView>
+      <View style={styles.filterRow}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
+          <View style={styles.chipGroup}>
+            {statusOptions.map((opt) => (
+              <FilterChip
+                key={opt.value}
+                label={opt.label}
+                onPress={() => setStatusFilter(opt.value)}
+                selected={statusFilter === opt.value}
+              />
+            ))}
+          </View>
+        </ScrollView>
+      </View>
 
       {loading && !refreshing && cases.length === 0 ? (
         <View style={styles.centerBox}>
@@ -150,7 +178,7 @@ export function AdminCaseListScreen() {
             </View>
           }
           onEndReached={() => {
-            if (hasMore && !loading) fetchCases(false, page + 1);
+            if (hasMore && !loading && !loadingMore && !isFetchingMore.current) fetchCases(false, page + 1);
           }}
           onEndReachedThreshold={0.3}
           refreshControl={
@@ -200,6 +228,19 @@ export function AdminCaseListScreen() {
               </Card>
             );
           }}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={styles.listFooter}>
+                <ActivityIndicator color={colors.primary} />
+                <Text color="textSecondary" variant="caption">Loading more cases...</Text>
+              </View>
+            ) : error && cases.length > 0 ? (
+              <View style={styles.listFooter}>
+                <Text color="danger" variant="caption">{error}</Text>
+                <Button label="Retry" onPress={() => fetchCases(false, page + 1)} variant="secondary" />
+              </View>
+            ) : null
+          }
           showsVerticalScrollIndicator={false}
         />
       )}
@@ -226,12 +267,16 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   countPill: { borderRadius: Radius.pill, paddingHorizontal: Spacing.md, paddingVertical: 4 },
   searchWrapper: { paddingHorizontal: Layout.screenPadding, paddingBottom: Spacing.sm },
-  filterScroll: { flexGrow: 0, paddingBottom: Spacing.sm },
-  chipGroup: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Layout.screenPadding },
+  // Keep the row height outside the horizontal ScrollView. React Native Web can
+  // otherwise measure a horizontal scroller at a shorter height than its chips.
+  filterRow: { flexGrow: 0, flexShrink: 0, height: Layout.minTapTarget + Spacing.sm, marginBottom: Spacing.xs },
+  filterScroll: { flex: 1 },
+  chipGroup: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm, height: '100%', paddingHorizontal: Layout.screenPadding },
   centerBox: { alignItems: 'center', flex: 1, gap: Spacing.sm, justifyContent: 'center', padding: Spacing.xl },
   centerText: { textAlign: 'center' },
   listContent: { gap: Spacing.md, paddingBottom: Layout.bottomNavInset, paddingHorizontal: Layout.screenPadding, paddingTop: Spacing.xs },
   emptyContent: { flexGrow: 1 },
+  listFooter: { alignItems: 'center', gap: Spacing.sm, paddingVertical: Spacing.lg },
   caseCard: { gap: Spacing.md },
   cardTop: { alignItems: 'flex-start', flexDirection: 'row', justifyContent: 'space-between', gap: Spacing.sm },
   refWrap: { flex: 1, gap: 2 },

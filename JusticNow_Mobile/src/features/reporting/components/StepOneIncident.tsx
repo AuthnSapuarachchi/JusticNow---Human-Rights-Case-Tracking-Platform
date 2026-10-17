@@ -5,9 +5,10 @@ interface StepOneProps {
   data: any; // Contains our formData
   updateData: (data: any) => void;
   onNext: () => void;
+  onBack: () => void;
 }
 
-export default function StepOneIncident({ data, updateData, onNext }: StepOneProps) {
+export default function StepOneIncident({ data, updateData, onNext, onBack }: StepOneProps) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
       <ScrollView
@@ -15,6 +16,15 @@ export default function StepOneIncident({ data, updateData, onNext }: StepOnePro
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator
       >
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel="Go back to the previous page"
+          onPress={onBack}
+          style={styles.backButton}
+          hitSlop={8}
+        >
+          <Text style={styles.backButtonText}>Back</Text>
+        </TouchableOpacity>
         <Text style={styles.title}>Incident Details</Text>
         <Text style={styles.subtitle}>Provide information about what happened. Take your time.</Text>
 
@@ -95,6 +105,8 @@ export default function StepOneIncident({ data, updateData, onNext }: StepOnePro
 const styles = StyleSheet.create({
   container: { backgroundColor: '#fff', flex: 1 },
   content: { paddingBottom: 32, paddingHorizontal: 2 },
+  backButton: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: 8, marginBottom: 8 },
+  backButtonText: { fontSize: 16, fontWeight: '600', color: '#2563EB' },
   title: { fontSize: 22, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
   subtitle: { fontSize: 14, color: '#64748B', marginBottom: 20 },
   

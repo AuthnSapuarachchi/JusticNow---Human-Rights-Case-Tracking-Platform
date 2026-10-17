@@ -15,10 +15,16 @@ const createTokens = (user) => ({
     )
 });
 
-const isDatabaseUnavailable = (error) =>
-    error?.code === 'P1001' ||
-    error?.cause?.name === 'DatabaseNotReachable' ||
-    ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(error?.cause?.code);
+const isDatabaseUnavailable = (error) => {
+    const cause = error?.cause;
+    const message = [error?.message, cause?.message].filter(Boolean).join(' ');
+
+    return error?.code === 'P1001' ||
+        cause?.name === 'DatabaseNotReachable' ||
+        ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'EHOSTUNREACH'].includes(cause?.code) ||
+        // The PostgreSQL driver adapter wraps connection failures from raw queries as P2010.
+        (error?.code === 'P2010' && /can't reach database server|could not connect to server/i.test(message));
+};
 
 // --- 1. Register user ---
 const registerUser = async (req, res) => {
