@@ -4,7 +4,6 @@ import { useRouter } from 'expo-router';
 import { View, StyleSheet, Platform, Pressable } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
 
 import { quickExit } from '@/components/quickExit';
 import { Text, useColors } from '@/design-system';
