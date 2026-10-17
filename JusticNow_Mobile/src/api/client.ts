@@ -44,6 +44,29 @@ async function refreshAccessToken(session: StoredSession): Promise<string | null
 	return result.accessToken;
 }
 
+/** Seconds until the JWT expires, or 0 if it cannot be read. */
+function secondsUntilExpiry(token: string): number {
+	try {
+		const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+		const { exp } = JSON.parse(atob(payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '='))) as { exp?: number };
+		return exp ? exp - Date.now() / 1000 : 0;
+	} catch {
+		return 0;
+	}
+}
+
+/**
+ * A usable access token, refreshed first if it expires within a minute.
+ * Long-lived connections (the chat socket) must use this rather than the
+ * token captured at login, which lasts only 15 minutes.
+ */
+export async function getFreshAccessToken(): Promise<string | undefined> {
+	const session = await readSession();
+	if (!session?.accessToken) return undefined;
+	if (secondsUntilExpiry(session.accessToken) > 60) return session.accessToken;
+	return (await refreshAccessToken(session)) ?? session.accessToken;
+}
+
 export async function request<T>(path: string, options: RequestInit = {}, hasRetried = false): Promise<T> {
 	const session = await readSession();
 	const response = await fetch(`${API_URL}${path}`, {

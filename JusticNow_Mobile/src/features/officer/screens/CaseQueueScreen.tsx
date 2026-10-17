@@ -6,7 +6,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   View,
 } from 'react-native';
@@ -18,6 +17,7 @@ import {
   Badge,
   Card,
   FilterChip,
+  HorizontalScroller,
   SearchField,
   Text,
 } from '@/design-system/components';
@@ -160,46 +160,45 @@ export function CaseQueueScreen() {
 
       {/* Filter Row 1: Assignment & Priority */}
       <View style={styles.filterBar}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          <View style={styles.chipGroup}>
-            <FilterChip
-              label="All Cases"
-              onPress={() => setAssignedFilter('all')}
-              selected={assignedFilter === 'all'}
-            />
-            <FilterChip
-              label="Assigned to Me"
-              onPress={() => setAssignedFilter('mine')}
-              selected={assignedFilter === 'mine'}
-            />
-            <FilterChip
-              label="Unassigned"
-              onPress={() => setAssignedFilter('unassigned')}
-              selected={assignedFilter === 'unassigned'}
-            />
-            <FilterChip
-              label="Urgent Only"
-              onPress={() => setPriorityFilter(priorityFilter === 'URGENT' ? 'ALL' : 'URGENT')}
-              selected={priorityFilter === 'URGENT'}
-            />
-          </View>
-        </ScrollView>
+        <HorizontalScroller accessibilityLabel="Case filters">
+          <FilterChip
+            label="All Cases"
+            onPress={() => setAssignedFilter('all')}
+            selected={assignedFilter === 'all'}
+          />
+          <FilterChip
+            label="Assigned to Me"
+            onPress={() => setAssignedFilter('mine')}
+            selected={assignedFilter === 'mine'}
+          />
+          <FilterChip
+            label="Unassigned"
+            onPress={() => setAssignedFilter('unassigned')}
+            selected={assignedFilter === 'unassigned'}
+          />
+          <FilterChip
+            label="Urgent Only"
+            onPress={() => setPriorityFilter(priorityFilter === 'URGENT' ? 'ALL' : 'URGENT')}
+            selected={priorityFilter === 'URGENT'}
+          />
+        </HorizontalScroller>
       </View>
 
       {/* Filter Row 2: Status Chips */}
       <View style={styles.filterBarSecondary}>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-          <View style={styles.chipGroupSecondary}>
-            {statusOptions.map((opt) => (
-              <FilterChip
-                key={opt.value}
-                label={opt.label}
-                onPress={() => setStatusFilter(opt.value)}
-                selected={statusFilter === opt.value}
-              />
-            ))}
-          </View>
-        </ScrollView>
+        <HorizontalScroller
+          accessibilityLabel="Status filters"
+          activeIndex={Math.max(0, statusOptions.findIndex((opt) => opt.value === statusFilter))}
+        >
+          {statusOptions.map((opt) => (
+            <FilterChip
+              key={opt.value}
+              label={opt.label}
+              onPress={() => setStatusFilter(opt.value)}
+              selected={statusFilter === opt.value}
+            />
+          ))}
+        </HorizontalScroller>
       </View>
 
       {/* Case List */}
@@ -380,19 +379,6 @@ const styles = StyleSheet.create({
   },
   filterBarSecondary: {
     paddingBottom: Spacing.sm,
-  },
-  filterScroll: {
-    paddingHorizontal: Layout.screenPadding,
-  },
-  chipGroup: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    paddingRight: Spacing.xl,
-  },
-  chipGroupSecondary: {
-    flexDirection: 'row',
-    gap: Spacing.xs,
-    paddingRight: Spacing.xl,
   },
   listContent: {
     paddingHorizontal: Layout.screenPadding,

@@ -12,10 +12,8 @@
     },
     "android": {
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/images/justiceNow-favicon.png",
-        "backgroundImage": "./assets/images/justiceNow-favicon.png",
-        "monochromeImage": "./assets/images/justiceNow-favicon.png"
+        "backgroundColor": "#0F1B3D",
+        "foregroundImage": "./assets/images/justiceNow-favicon.png"
       },
       "predictiveBackGestureEnabled": false,
       "package": "com.anonymous.JusticNow"
@@ -31,13 +29,14 @@
         {
           "backgroundColor": "#208AEF",
           "image": "./assets/images/justiceNow-favicon.png",
-          "imageWidth": 76
+          "imageWidth": 200
         }
       ],
       "expo-font",
       "expo-image",
       "expo-status-bar",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-audio"
     ],
     "experiments": {
       "typedRoutes": true,

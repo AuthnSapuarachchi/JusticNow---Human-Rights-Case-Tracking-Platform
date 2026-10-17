@@ -1,6 +1,10 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const prisma = require('../config/db');
+const { notifyAdmins } = require('../utils/notify');
+
+// e.g. OFF-2026-00042 — unique because it is derived from the user's primary key.
+const formatOfficerId = (user) => `OFF-${user.createdAt.getFullYear()}-${String(user.id).padStart(5, '0')}`;
 
 const createTokens = (user) => ({
     accessToken: jwt.sign(
@@ -61,7 +65,8 @@ const registerUser = async (req, res) => {
         // Save to DB
         const isCitizen = role === 'CITIZEN';
         const profileData = {
-            officerId: req.body.officerId?.trim() || null,
+            // Officer IDs are issued by the platform (below), never typed in by the applicant.
+            officerId: null,
             organization: req.body.organization?.trim() || null,
             department: req.body.department?.trim() || null,
             designation: req.body.designation?.trim() || null,
@@ -94,14 +99,29 @@ const registerUser = async (req, res) => {
                     }),
                 },
             });
+            if (role === 'OFFICER') {
+                const officerId = formatOfficerId(user);
+                await transaction.verificationProfile.update({ where: { userId: user.id }, data: { officerId } });
+                return { ...user, officerId };
+            }
             return user;
         });
 
         const tokens = createTokens(newUser);
 
-        res.status(201).json({ 
+        if (role === 'OFFICER') {
+            notifyAdmins(req.app.get('io'), {
+                type: 'OFFICER_PENDING',
+                title: 'New officer awaiting approval',
+                body: `${newUser.name} (${newUser.officerId}) submitted documents for review.`,
+                href: '/admin/verifications',
+            });
+        }
+
+        res.status(201).json({
             message: isCitizen ? 'Account created successfully.' : 'Registration submitted successfully. Your account is pending verification.',
             verificationStatus: newUser.verificationStatus,
+            officerId: newUser.officerId ?? null,
             user: { id: newUser.id, email: newUser.email, name: newUser.name, role: newUser.role, verificationStatus: newUser.verificationStatus },
             ...tokens
         });

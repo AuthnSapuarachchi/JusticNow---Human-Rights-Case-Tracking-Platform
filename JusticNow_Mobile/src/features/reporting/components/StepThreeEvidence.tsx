@@ -1,6 +1,12 @@
+import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Image, Alert, Platform } from 'react-native';
+import { View, StyleSheet, Pressable, Image, Alert, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+
+import { Button, Card, Text, useColors } from '@/design-system';
+import { Layout, Radius, Spacing } from '@/design-system/spacing';
+
+import { FooterSlot, StepFooter, StepLayout } from './StepLayout';
 
 interface StepThreeProps {
   data: any;
@@ -10,16 +16,18 @@ interface StepThreeProps {
 }
 
 export default function StepThreeEvidence({ data, updateData, onNext, onPrev }: StepThreeProps) {
-  
-const pickImage = async () => {
+  const colors = useColors();
+  const files: any[] = data.files || [];
+
+  const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
-      Alert.alert('Permission Needed', 'We need access to your photos to upload evidence.');
+      Alert.alert('Permission needed', 'Allow photo access to attach evidence. You can change this in your device settings.');
       return;
     }
 
-    let result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.8,
     });
@@ -29,7 +37,7 @@ const pickImage = async () => {
       let webFile = asset.file;
       let displayUri = asset.uri;
 
-      // 🚨 WEB FIX: Generate a stable Object URL for the browser to render
+      // Web: keep a real File for upload and a stable object URL for the preview.
       if (Platform.OS === 'web') {
         if (!webFile) {
           try {
@@ -40,7 +48,7 @@ const pickImage = async () => {
               type: asset.mimeType || blob.type || 'application/octet-stream',
             });
           } catch (error) {
-            console.error("Failed to fetch web blob:", error);
+            console.error('Failed to fetch web blob:', error);
             Alert.alert('Photo unavailable', 'Please choose the photo again before continuing.');
             return;
           }
@@ -50,109 +58,97 @@ const pickImage = async () => {
           Alert.alert('Photo unavailable', 'This photo could not be prepared for upload. Please choose it again.');
           return;
         }
-        // Keep the File object for upload; the object URL is only for the preview.
         displayUri = URL.createObjectURL(webFile);
       }
 
       const newFile = {
-        uri: displayUri, // This is now a safe URL for the <Image> component
+        uri: displayUri,
         name: asset.fileName || `evidence_${Date.now()}.jpg`,
         type: asset.mimeType || 'image/jpeg',
-        file: webFile
+        file: webFile,
       };
-      
-      updateData({ ...data, files: [...(data.files || []), newFile] });
+
+      updateData({ ...data, files: [...files, newFile] });
     }
   };
 
   const removeFile = (indexToRemove: number) => {
-    const updatedFiles = data.files.filter((_: any, index: number) => index !== indexToRemove);
+    const updatedFiles = files.filter((_: any, index: number) => index !== indexToRemove);
     updateData({ ...data, files: updatedFiles });
   };
 
   return (
-    <View style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>Attach Evidence</Text>
-        <Text style={styles.subtitle}>Upload any photos or screenshots that support your report. This is strictly confidential.</Text>
+    <StepLayout
+      footer={
+        <StepFooter>
+          <FooterSlot><Button fullWidth label="Back" onPress={onPrev} variant="secondary" /></FooterSlot>
+          <FooterSlot grow={2}>
+            <Button fullWidth icon="arrow-forward" label={files.length ? 'Continue' : 'Skip for now'} onPress={onNext} />
+          </FooterSlot>
+        </StepFooter>
+      }
+      subtitle="Photos or screenshots can help, but they are optional. Only the people handling your case can see them."
+      title="Add evidence"
+    >
+      <Pressable
+        accessibilityHint="Opens your photo library"
+        accessibilityLabel="Add a photo"
+        accessibilityRole="button"
+        onPress={pickImage}
+        style={({ pressed }) => [
+          styles.dropzone,
+          { backgroundColor: colors.surface, borderColor: colors.borderStrong },
+          pressed && styles.pressed,
+        ]}
+      >
+        <View style={[styles.dropIcon, { backgroundColor: colors.primarySoft }]}>
+          <Ionicons color={colors.primary} name="image-outline" size={26} />
+        </View>
+        <Text variant="bodyStrong">Add a photo</Text>
+        <Text color="textSecondary" variant="caption">JPG or PNG, up to 10 MB</Text>
+      </Pressable>
 
-        {/* Upload Button */}
-        <TouchableOpacity style={styles.uploadBox} onPress={pickImage} activeOpacity={0.7}>
-          <Text style={styles.uploadIcon}>📸</Text>
-          <Text style={styles.uploadText}>Tap to select a photo</Text>
-          <Text style={styles.uploadSubText}>JPG, PNG up to 10MB</Text>
-        </TouchableOpacity>
-
-        {/* File Preview Area */}
+      {files.length > 0 ? (
         <View style={styles.fileList}>
-          {data.files && data.files.map((file: any, index: number) => (
-            <View key={index} style={styles.fileCard}>
-              <Image source={{ uri: file.uri }} style={styles.previewImage} />
-              <View style={styles.fileInfo}>
-                <Text style={styles.fileName} numberOfLines={1} ellipsizeMode="middle">
-                  {file.name}
-                </Text>
-              </View>
-              <TouchableOpacity onPress={() => removeFile(index)} style={styles.deleteButton}>
-                <Text style={styles.deleteButtonText}>🗑️</Text>
-              </TouchableOpacity>
-            </View>
+          {files.map((file: any, index: number) => (
+            <Card key={`${file.uri}-${index}`} style={styles.fileCard}>
+              <Image source={{ uri: file.uri }} style={[styles.preview, { backgroundColor: colors.surfaceMuted }]} />
+              <Text ellipsizeMode="middle" numberOfLines={1} style={styles.fileName}>
+                {file.name}
+              </Text>
+              <Pressable
+                accessibilityLabel={`Remove ${file.name}`}
+                accessibilityRole="button"
+                hitSlop={6}
+                onPress={() => removeFile(index)}
+                style={({ pressed }) => [styles.removeButton, pressed && styles.pressed]}
+              >
+                <Ionicons color={colors.danger} name="trash-outline" size={22} />
+              </Pressable>
+            </Card>
           ))}
         </View>
-      </ScrollView>
+      ) : null}
 
-      {/* Navigation Buttons */}
-      <View style={styles.buttonRow}>
-        <TouchableOpacity style={styles.prevButton} onPress={onPrev}>
-          <Text style={styles.prevButtonText}>← Back</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.nextButton} onPress={onNext}>
-          <Text style={styles.nextButtonText}>Next: Review →</Text>
-        </TouchableOpacity>
+      <View style={[styles.note, { backgroundColor: colors.surfaceMuted }]}>
+        <Ionicons color={colors.textSecondary} name="information-circle-outline" size={20} />
+        <Text color="textSecondary" style={styles.flex} variant="caption">
+          The first photo is uploaded with your report. You can share more later in your case messages.
+        </Text>
       </View>
-    </View>
+    </StepLayout>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  title: { fontSize: 22, fontWeight: 'bold', color: '#1E293B', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#64748B', marginBottom: 20 },
-  
-  uploadBox: {
-    borderWidth: 2,
-    borderColor: '#CBD5E1',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    padding: 30,
-    alignItems: 'center',
-    backgroundColor: '#F8FAFC',
-    marginBottom: 20
-  },
-  uploadIcon: { fontSize: 32, marginBottom: 8 },
-  uploadText: { fontSize: 16, fontWeight: '600', color: '#334155' },
-  uploadSubText: { fontSize: 12, color: '#94A3B8', marginTop: 4 },
-
-  fileList: { gap: 12 },
-  fileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FAFAFA',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 8,
-    padding: 8
-  },
-  previewImage: { width: 50, height: 50, borderRadius: 6, marginRight: 12, backgroundColor: '#E2E8F0' },
-  fileInfo: { flex: 1 },
-  fileName: { fontSize: 14, fontWeight: '500', color: '#1E293B' },
-  deleteButton: { padding: 8 },
-  deleteButtonText: { fontSize: 18 },
-
-  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 },
-  prevButton: { padding: 16, borderRadius: 8, backgroundColor: '#F1F5F9', flex: 1, marginRight: 8, alignItems: 'center' },
-  prevButtonText: { color: '#475569', fontSize: 16, fontWeight: '600' },
-  nextButton: { padding: 16, borderRadius: 8, backgroundColor: '#2563EB', flex: 2, alignItems: 'center' },
-  nextButtonText: { color: '#fff', fontSize: 16, fontWeight: 'bold' }
+  flex: { flex: 1 },
+  pressed: { opacity: 0.7 },
+  dropzone: { alignItems: 'center', borderRadius: Radius.lg, borderStyle: 'dashed', borderWidth: 1.5, gap: Spacing.xs, paddingVertical: Spacing.xxl },
+  dropIcon: { alignItems: 'center', borderRadius: Radius.md, height: 52, justifyContent: 'center', marginBottom: Spacing.sm, width: 52 },
+  fileList: { gap: Spacing.md },
+  fileCard: { alignItems: 'center', flexDirection: 'row', gap: Spacing.md, padding: Spacing.sm },
+  preview: { borderRadius: Radius.sm, height: 56, width: 56 },
+  fileName: { flex: 1 },
+  removeButton: { alignItems: 'center', height: Layout.minTapTarget, justifyContent: 'center', width: Layout.minTapTarget },
+  note: { alignItems: 'flex-start', borderRadius: Radius.md, flexDirection: 'row', gap: Spacing.sm, padding: Spacing.md },
 });

@@ -3,6 +3,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 
 import { AuthProvider, AuthRedirect, useAuth } from '@/context/AuthContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 import { I18nProvider } from '@/i18n';
 
 SplashScreen.preventAutoHideAsync();
@@ -15,7 +16,9 @@ export default function RootLayout() {
   return (
     <I18nProvider>
       <AuthProvider>
-        <AuthGate />
+        <NotificationProvider>
+          <AuthGate />
+        </NotificationProvider>
       </AuthProvider>
     </I18nProvider>
   );

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { Pressable, SafeAreaView, ScrollView, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Text } from '@/design-system/components';
+import { BrandLogo, Button, Card, Text } from '@/design-system/components';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
 import { useAuth, type UserRole } from '@/context/AuthContext';
 import { useColors } from '@/design-system/use-colors';
@@ -46,7 +46,7 @@ export function RoleDashboard({ role }: { role: Exclude<UserRole, 'CITIZEN'> }) 
   };
 
   return <SafeAreaView style={[styles.container, { backgroundColor: colors.canvas }]}><ScrollView contentContainerStyle={styles.content}>
-    <View style={styles.header}><View style={[styles.icon, { backgroundColor: colors.primarySoft }]}><Ionicons color={colors.primary} name={content.icon} size={28} /></View><Pressable accessibilityLabel="Log out" accessibilityRole="button" hitSlop={8} onPress={handleLogout}><Ionicons color={colors.textSecondary} name="log-out-outline" size={24} /></Pressable></View>
+    <View style={styles.header}><BrandLogo size={56} /><Pressable accessibilityLabel="Log out" accessibilityRole="button" hitSlop={8} onPress={handleLogout}><Ionicons color={colors.textSecondary} name="log-out-outline" size={24} /></Pressable></View>
     <Text color="primary" style={styles.eyebrow} variant="eyebrow">{role} PORTAL</Text>
     <Text style={styles.title} variant="display">{content.title}</Text>
     <Text color="textSecondary" style={styles.subtitle}>{content.subtitle}</Text>
@@ -57,4 +57,4 @@ export function RoleDashboard({ role }: { role: Exclude<UserRole, 'CITIZEN'> }) 
   </ScrollView><BottomNavBar activeTab={NavTab.Home} onTabPress={handleTabPress} /></SafeAreaView>;
 }
 
-const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: Layout.screenPadding, paddingBottom: 120, paddingTop: Spacing.xxxl }, header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xxxl }, icon: { alignItems: 'center', borderRadius: Radius.lg, height: 60, justifyContent: 'center', width: 60 }, eyebrow: { marginBottom: Spacing.sm }, title: { marginBottom: Spacing.sm }, subtitle: { marginBottom: Spacing.xxxl }, welcome: { marginBottom: Spacing.xxxl, padding: Spacing.xl }, name: { marginVertical: Spacing.sm }, sectionTitle: { marginBottom: Spacing.lg }, action: { alignItems: 'center', borderRadius: Radius.md, borderWidth: 1, flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md, minHeight: 70, padding: Spacing.md }, actionIcon: { alignItems: 'center', borderRadius: Radius.sm, height: 42, justifyContent: 'center', width: 42 }, actionText: { flex: 1 }, });
+const styles = StyleSheet.create({ container: { flex: 1 }, content: { padding: Layout.screenPadding, paddingBottom: 120, paddingTop: Spacing.xxxl }, header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', marginBottom: Spacing.xxxl }, eyebrow: { marginBottom: Spacing.sm }, title: { marginBottom: Spacing.sm }, subtitle: { marginBottom: Spacing.xxxl }, welcome: { marginBottom: Spacing.xxxl, padding: Spacing.xl }, name: { marginVertical: Spacing.sm }, sectionTitle: { marginBottom: Spacing.lg }, action: { alignItems: 'center', borderRadius: Radius.md, borderWidth: 1, flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.md, minHeight: 70, padding: Spacing.md }, actionIcon: { alignItems: 'center', borderRadius: Radius.sm, height: 42, justifyContent: 'center', width: 42 }, actionText: { flex: 1 }, });

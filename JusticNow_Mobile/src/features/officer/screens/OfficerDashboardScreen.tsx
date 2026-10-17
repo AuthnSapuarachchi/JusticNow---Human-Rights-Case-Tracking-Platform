@@ -13,8 +13,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DashboardStats, getDashboardStats } from '@/api/officerApi';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useAuth } from '@/context/AuthContext';
-import { Badge, Button, Card, Text } from '@/design-system/components';
+import { Badge, BrandLogo, Button, Card, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
 import { formatCaseDate, getOfficerStatusConfig } from '@/features/cases/statusUtils';
@@ -155,9 +156,7 @@ export function OfficerDashboardScreen() {
         {/* Top Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={[styles.avatarBox, { backgroundColor: colors.primarySoft }]}>
-              <Ionicons color={colors.primary} name="shield-checkmark" size={26} />
-            </View>
+            <BrandLogo size={52} />
             <View>
               <Text color="primary" variant="eyebrow">
                 OFFICER PORTAL
@@ -168,15 +167,18 @@ export function OfficerDashboardScreen() {
             </View>
           </View>
 
-          <Pressable
-            accessibilityLabel="Log out"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={handleLogout}
-            style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
-          >
-            <Ionicons color={colors.textSecondary} name="log-out-outline" size={22} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <NotificationBell />
+            <Pressable
+              accessibilityLabel="Log out"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={handleLogout}
+              style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
+            >
+              <Ionicons color={colors.textSecondary} name="log-out-outline" size={22} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Officer Welcome Card */}
@@ -411,17 +413,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: Spacing.sm,
   },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-  },
-  avatarBox: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
     marginTop: 2,

@@ -1,13 +1,13 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { formatCategoryCode } from '@/api/adminApi';
 import { getOfficerCases, OfficerCaseItem } from '@/api/officerApi';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
-import { Badge, Button, Card, FilterChip, SearchField, Text } from '@/design-system/components';
+import { Badge, Button, Card, FilterChip, HorizontalScroller, SearchField, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
 import { formatCaseDate, getOfficerStatusConfig } from '@/features/cases/statusUtils';
@@ -103,26 +103,26 @@ export function AdminCaseListScreen() {
         />
       </View>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-        <View style={styles.chipGroup}>
-          <FilterChip label="All Cases" onPress={() => setUnassignedOnly(false)} selected={!unassignedOnly} />
-          <FilterChip label="Unassigned" onPress={() => setUnassignedOnly(true)} selected={unassignedOnly} />
-          <FilterChip label="Urgent Only" onPress={() => setUrgentOnly((v) => !v)} selected={urgentOnly} />
-        </View>
-      </ScrollView>
+      <HorizontalScroller accessibilityLabel="Case filters" style={styles.filterScroll}>
+        <FilterChip label="All Cases" onPress={() => setUnassignedOnly(false)} selected={!unassignedOnly} />
+        <FilterChip label="Unassigned" onPress={() => setUnassignedOnly(true)} selected={unassignedOnly} />
+        <FilterChip label="Urgent Only" onPress={() => setUrgentOnly((v) => !v)} selected={urgentOnly} />
+      </HorizontalScroller>
 
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterScroll}>
-        <View style={styles.chipGroup}>
-          {statusOptions.map((opt) => (
-            <FilterChip
-              key={opt.value}
-              label={opt.label}
-              onPress={() => setStatusFilter(opt.value)}
-              selected={statusFilter === opt.value}
-            />
-          ))}
-        </View>
-      </ScrollView>
+      <HorizontalScroller
+        accessibilityLabel="Status filters"
+        activeIndex={Math.max(0, statusOptions.findIndex((opt) => opt.value === statusFilter))}
+        style={styles.filterScroll}
+      >
+        {statusOptions.map((opt) => (
+          <FilterChip
+            key={opt.value}
+            label={opt.label}
+            onPress={() => setStatusFilter(opt.value)}
+            selected={statusFilter === opt.value}
+          />
+        ))}
+      </HorizontalScroller>
 
       {loading && !refreshing && cases.length === 0 ? (
         <View style={styles.centerBox}>
@@ -227,7 +227,6 @@ const styles = StyleSheet.create({
   countPill: { borderRadius: Radius.pill, paddingHorizontal: Spacing.md, paddingVertical: 4 },
   searchWrapper: { paddingHorizontal: Layout.screenPadding, paddingBottom: Spacing.sm },
   filterScroll: { flexGrow: 0, paddingBottom: Spacing.sm },
-  chipGroup: { flexDirection: 'row', gap: Spacing.sm, paddingHorizontal: Layout.screenPadding },
   centerBox: { alignItems: 'center', flex: 1, gap: Spacing.sm, justifyContent: 'center', padding: Spacing.xl },
   centerText: { textAlign: 'center' },
   listContent: { gap: Spacing.md, paddingBottom: Layout.bottomNavInset, paddingHorizontal: Layout.screenPadding, paddingTop: Spacing.xs },

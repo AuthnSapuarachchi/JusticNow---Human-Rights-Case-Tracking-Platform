@@ -19,7 +19,7 @@ import {
   OfficerCaseDetail,
 } from '@/api/officerApi';
 import { useAuth } from '@/context/AuthContext';
-import { Badge, Button, Card, Text } from '@/design-system/components';
+import { Badge, Button, Card, HorizontalScroller, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
 import {
@@ -36,6 +36,9 @@ import {
   ReferralModal,
   RequestInfoModal,
 } from '../components';
+
+/** Order of the section tabs, used to keep the active tab scrolled into view. */
+const TAB_ORDER = ['evidence', 'notes', 'info', 'referrals', 'actions'] as const;
 
 interface CaseReviewScreenProps {
   caseId?: string;
@@ -397,7 +400,13 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
 
         {/* Section Tabs Header */}
         <View style={styles.tabsBar}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
+          <HorizontalScroller
+            accessibilityLabel="Case sections"
+            activeIndex={TAB_ORDER.indexOf(activeTab)}
+            backgroundColor="#FFFFFF"
+            gap={0}
+            inset={Spacing.sm}
+          >
             <Pressable
               onPress={() => setActiveTab('evidence')}
               style={[
@@ -487,7 +496,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 TIMELINE ({caseDetail.actions?.length || 0})
               </Text>
             </Pressable>
-          </ScrollView>
+          </HorizontalScroller>
         </View>
 
         {/* Tab Content Display */}
@@ -835,15 +844,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 5,
   },
-  tabsScroll: {
-    flexDirection: 'row',
-  },
   tabItem: {
     minHeight: Layout.minTapTarget,
     justifyContent: 'center',
     paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    marginRight: Spacing.sm,
   },
   tabContentArea: {
     paddingVertical: Spacing.xs,
