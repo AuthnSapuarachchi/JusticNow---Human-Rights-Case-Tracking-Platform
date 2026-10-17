@@ -1,6 +1,6 @@
 import { request } from './client';
 
-export type NotificationType = 'OFFICER_PENDING' | 'CASE_UNASSIGNED' | 'CASE_ASSIGNED' | 'NEW_MESSAGE' | 'ACCOUNT_APPROVED' | 'REFRESH';
+export type NotificationType = 'OFFICER_PENDING' | 'CASE_UNASSIGNED' | 'CASE_ASSIGNED' | 'CASE_UPDATED' | 'NEW_MESSAGE' | 'ACCOUNT_APPROVED' | 'REFRESH';
 
 export interface AppNotification {
   id: string;
@@ -13,7 +13,7 @@ export interface AppNotification {
   silent?: boolean;
 }
 
-/** Admins and officers only. Built from live data, newest first. */
+/** For the signed-in user's role (admin, officer or citizen). Built from live data, newest first. */
 export function getNotifications(): Promise<AppNotification[]> {
   return request<AppNotification[]>('/api/notifications');
 }

@@ -1,5 +1,5 @@
 const prisma = require('../config/db');
-const { notifyUser, notifyAdmins } = require('../utils/notify');
+const { notifyUser, notifyAdmins, notifyReporter } = require('../utils/notify');
 
 /**
  * Validate that case ID is a positive integer
@@ -437,6 +437,7 @@ const approveCase = async (req, res) => {
         ]);
 
         notifyUser(req.app.get('io'), req.user.id, { type: 'REFRESH', silent: true });
+        notifyReporter(req.app.get('io'), updatedCase, 'UNDER_REVIEW');
         res.json({ message: 'Case approved. Private messaging is now available.', case: updatedCase, statusHistory, action });
     } catch (error) {
         console.error('Error approving case:', error);
@@ -519,6 +520,7 @@ const updateCaseStatus = async (req, res) => {
             }),
         ]);
 
+        notifyReporter(req.app.get('io'), updatedCase, newStatus);
         res.json({
             message: `Case status changed from ${fromStatus} to ${newStatus}.`,
             case: updatedCase,
@@ -656,6 +658,7 @@ const createInfoRequest = async (req, res) => {
             prisma.case.update({
                 where: { id: caseId },
                 data: { status: 'WAITING_FOR_USER' },
+                include: { trackingCode: true },
             }),
             // Notify the reporter through the existing case chat
             prisma.message.create({
@@ -686,6 +689,7 @@ const createInfoRequest = async (req, res) => {
 
         const io = req.app.get('io');
         if (io) io.to(`case:${caseId}`).emit('chat:message', serializeChatMessage(chatMessage));
+        notifyReporter(io, updatedCase, 'WAITING_FOR_USER');
 
         res.status(201).json({
             message: 'Information request created and case status moved to WAITING_FOR_USER.',
@@ -971,6 +975,7 @@ const closeCase = async (req, res) => {
             }),
         ]);
 
+        notifyReporter(req.app.get('io'), updatedCase, 'CLOSED');
         res.json({
             message: 'Case closed successfully.',
             case: updatedCase,

@@ -8,6 +8,7 @@ export function notificationIcon(type: NotificationType): ComponentProps<typeof 
     case 'OFFICER_PENDING': return 'person-add-outline';
     case 'CASE_UNASSIGNED': return 'alert-circle-outline';
     case 'CASE_ASSIGNED': return 'folder-open-outline';
+    case 'CASE_UPDATED': return 'reader-outline';
     case 'NEW_MESSAGE': return 'chatbubble-ellipses-outline';
     case 'ACCOUNT_APPROVED': return 'checkmark-circle-outline';
     default: return 'notifications-outline';

@@ -5,6 +5,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { quickExit } from '@/components/quickExit';
 import { useAuth } from '@/context/AuthContext';
 import { BrandLogo, Button, Card, IconTile, Text, useColors } from '@/design-system';
@@ -62,6 +63,7 @@ export default function CitizenHomeScreen() {
               Quick exit
             </Text>
           </Pressable>
+          <NotificationBell />
           <Pressable
             accessibilityLabel="Log out"
             accessibilityRole="button"
