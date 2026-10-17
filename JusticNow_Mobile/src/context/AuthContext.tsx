@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { request, requestMultipart } from '@/api/client';
+import { nativeFormDataFile } from '@/api/formDataFile';
 import { closeSocket } from '@/api/socket';
 
 const SESSION_KEY = 'justicenow.session';
@@ -95,7 +96,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         const file: Blob = document.file ?? await fetch(document.uri).then((response) => response.blob());
         formData.append('documents', file, document.name);
       } else {
-        formData.append('documents', { uri: document.uri, name: document.name, type: document.type } as any);
+        formData.append('documents', nativeFormDataFile(document.uri, document.name, document.type));
       }
     }
     const result = await requestMultipart<{ officerId?: string | null }>('/api/auth/register', formData);
