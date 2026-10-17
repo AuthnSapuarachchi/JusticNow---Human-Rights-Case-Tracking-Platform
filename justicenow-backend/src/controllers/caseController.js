@@ -144,7 +144,10 @@ const submitCase = async (req, res) => {
 
 const serializeStatus = (status) => ({
     SUBMITTED: 'pending',
+    NEW: 'pending',
     UNDER_REVIEW: 'in-progress',
+    INVESTIGATING: 'in-progress',
+    WAITING_FOR_USER: 'in-progress',
     ACTION_REQUIRED: 'in-progress',
     RESOLVED: 'resolved',
     CLOSED: 'resolved',

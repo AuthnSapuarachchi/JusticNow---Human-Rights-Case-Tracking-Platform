@@ -17,11 +17,12 @@
  */
 const palette = {
   // Brand blue — primary actions, links, active states, verified badge.
-  blue700: '#0F45B0',
-  blue600: '#1355D6',
-  blue500: '#3B77E3',
-  blue100: '#DCE7FB',
-  blue50: '#EEF4FE',
+  // blue600 is the navy of the app logo/icon tile (assets/images/justiceNow-logo.png).
+  blue700: '#0A1F44',
+  blue600: '#0F2B5B',
+  blue500: '#3D5A8C',
+  blue100: '#DCE3EF',
+  blue50: '#EEF2F8',
 
   // Navy — headings, active dark chips, the featured-guide card.
   navy900: '#0D1B2A',
@@ -115,14 +116,15 @@ export const darkColors: ColorTokens = {
   textInverse: palette.navy900,
   textOnPrimary: palette.white,
 
-  primary: '#5B94F0',
-  primaryPressed: '#7CACF5',
-  primarySoft: '#15304F',
-  primarySoftText: '#AFC9F7',
-  link: '#5B94F0',
-  focusRing: '#7CACF5',
+  // Lightened logo navy (same hue) so it stays legible on dark grounds.
+  primary: '#81A2DA',
+  primaryPressed: '#A3BCE6',
+  primarySoft: '#15284A',
+  primarySoftText: '#B9CBEB',
+  link: '#81A2DA',
+  focusRing: '#A3BCE6',
 
-  verified: '#5B94F0',
+  verified: '#81A2DA',
   success: '#4FA383',
   successSoft: '#14312A',
   warning: '#D89250',
