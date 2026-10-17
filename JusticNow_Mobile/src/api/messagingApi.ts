@@ -68,8 +68,16 @@ export function subscribeToChat(caseId: string, { onMessage, onJoined, onConnect
   };
 }
 
-/** Attachment URLs are stored relative to the API (e.g. /uploads/x.jpg). */
-export const resolveMediaUrl = (url: string) => (/^https?:\/\//.test(url) ? url : `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`);
+/**
+ * Attachment URLs are Supabase https links (current), or `/uploads/...` paths on the
+ * API server (older messages). A few old rows saved the full `http://<old-ip>:5000/uploads/...`
+ * address, which breaks once the laptop's IP changes, so those go through the current API host.
+ */
+export const resolveMediaUrl = (url: string) => {
+  const legacyUpload = url.match(/^https?:\/\/[^/]+(\/uploads\/.+)$/);
+  if (legacyUpload) return `${API_URL}${legacyUpload[1]}`;
+  return /^https?:\/\//.test(url) ? url : `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
 
 export const isImageAttachment = (attachment?: { url: string; type?: string; name?: string } | null) =>
   Boolean(attachment && (attachment.type?.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic)$/i.test(attachment.name || attachment.url)));

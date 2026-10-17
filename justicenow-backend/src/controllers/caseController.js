@@ -1,28 +1,8 @@
 require('dotenv').config();
 const bcrypt = require('bcryptjs');
-const { createClient } = require('@supabase/supabase-js');
 const prisma = require('../config/db');
 const { notifyUser } = require('../utils/notify');
-
-let supabase;
-
-const getSupabase = () => {
-    if (supabase) return supabase;
-
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY;
-
-    if (!supabaseUrl || !supabaseKey) {
-        const error = new Error('Supabase storage is not configured. Set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.');
-        error.code = 'SUPABASE_STORAGE_NOT_CONFIGURED';
-        throw error;
-    }
-
-    supabase = createClient(supabaseUrl, supabaseKey, {
-        auth: { autoRefreshToken: false, persistSession: false }
-    });
-    return supabase;
-};
+const { getSupabase } = require('../utils/storage');
 
 const generateTrackingCode = () => 'JN-' + Math.floor(100000 + Math.random() * 900000);
 

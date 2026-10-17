@@ -1,23 +1,12 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const { protectRoute, authorizeRoles } = require('../middlewares/authMiddleware');
 const { authorizeCaseChat, createMessage, listMessages, uploadAttachment } = require('../controllers/chatController');
-
-const uploadDirectory = path.join(process.cwd(), 'uploads');
-fs.mkdirSync(uploadDirectory, { recursive: true });
-const ALLOWED_TYPES = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/heic': '.heic', 'image/gif': '.gif', 'application/pdf': '.pdf' };
+const { ALLOWED_TYPES } = require('../utils/storage');
 
 const upload = multer({
-    // Keep a real extension so /uploads serves the file with an image content type.
-    storage: multer.diskStorage({
-        destination: uploadDirectory,
-        filename: (req, file, callback) => {
-            const extension = ALLOWED_TYPES[file.mimetype] || path.extname(file.originalname).toLowerCase() || '';
-            callback(null, `chat-${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`);
-        },
-    }),
+    // Held in memory, then stored in Supabase by uploadAttachment (not on this server's disk).
+    storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 },
     fileFilter: (req, file, callback) => {
         if (ALLOWED_TYPES[file.mimetype]) return callback(null, true);

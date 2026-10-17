@@ -16,6 +16,8 @@ import {
   subscribeToChat,
   uploadAttachment,
 } from '@/api/messagingApi';
+import { jpegSafeName } from '@/api/formDataFile';
+import { RemoteImage } from '@/components/RemoteImage';
 import { useAuth } from '@/context/AuthContext';
 import { StateView, Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
@@ -175,7 +177,12 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
       setError('Allow photo access in your device settings to share a photo.');
       return;
     }
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      // iPhone photos are HEIC, which Android and browsers cannot show. Ask iOS for JPEG.
+      preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
+    });
     if (result.canceled) return;
     const asset = result.assets[0];
     setIsUploading(true);
@@ -186,7 +193,7 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
     try {
       const attachment = await uploadAttachment(caseId, {
         uri: asset.uri,
-        name: asset.fileName || `photo-${Date.now()}.jpg`,
+        name: jpegSafeName(asset.fileName || `photo-${Date.now()}.jpg`, asset.mimeType),
         type: asset.mimeType || 'image/jpeg',
         file: asset.file,
       });
@@ -314,12 +321,20 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
                           onPress={() => item.attachment && setViewerUrl(resolveMediaUrl(item.attachment.url))}
                           style={styles.photoWrap}
                         >
-                          <Image
-                            contentFit="cover"
-                            source={{ uri: item.localPreview ?? resolveMediaUrl(item.attachment.url) }}
-                            style={[styles.photo, { backgroundColor: colors.surfaceMuted }]}
-                            transition={150}
-                          />
+                          {item.localPreview ? (
+                            <Image
+                              contentFit="cover"
+                              source={{ uri: item.localPreview }}
+                              style={[styles.photo, { backgroundColor: colors.surfaceMuted }]}
+                              transition={150}
+                            />
+                          ) : (
+                            <RemoteImage
+                              accessibilityLabel="Shared photo"
+                              style={[styles.photo, { backgroundColor: colors.surfaceMuted }]}
+                              uri={resolveMediaUrl(item.attachment.url)}
+                            />
+                          )}
                           {item.pending ? (
                             <View style={styles.photoOverlay}>
                               <ActivityIndicator color="#FFFFFF" />
@@ -403,7 +418,7 @@ export function CaseMessagingScreen({ caseId, currentUserId, participantId }: Ca
 
       <Modal animationType="fade" onRequestClose={() => setViewerUrl(null)} transparent visible={viewerUrl !== null}>
         <View style={styles.viewer}>
-          {viewerUrl ? <Image contentFit="contain" source={{ uri: viewerUrl }} style={styles.viewerImage} /> : null}
+          {viewerUrl ? <RemoteImage contentFit="contain" style={styles.viewerImage} tone="light" uri={viewerUrl} /> : null}
           <Pressable
             accessibilityLabel="Close photo"
             accessibilityRole="button"

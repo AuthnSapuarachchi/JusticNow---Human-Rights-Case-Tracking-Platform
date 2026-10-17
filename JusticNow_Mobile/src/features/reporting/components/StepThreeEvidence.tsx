@@ -3,6 +3,7 @@ import React from 'react';
 import { View, StyleSheet, Pressable, Image, Alert, Platform } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 
+import { jpegSafeName } from '@/api/formDataFile';
 import { Button, Card, Text, useColors } from '@/design-system';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 
@@ -30,6 +31,8 @@ export default function StepThreeEvidence({ data, updateData, onNext, onPrev }: 
       mediaTypes: ['images'],
       allowsEditing: false,
       quality: 0.8,
+      // iPhone photos are HEIC, which Android and browsers cannot show. Ask iOS for JPEG.
+      preferredAssetRepresentationMode: ImagePicker.UIImagePickerPreferredAssetRepresentationMode.Compatible,
     });
 
     if (!result.canceled) {
@@ -63,7 +66,7 @@ export default function StepThreeEvidence({ data, updateData, onNext, onPrev }: 
 
       const newFile = {
         uri: displayUri,
-        name: asset.fileName || `evidence_${Date.now()}.jpg`,
+        name: jpegSafeName(asset.fileName || `evidence_${Date.now()}.jpg`, asset.mimeType),
         type: asset.mimeType || 'image/jpeg',
         file: webFile,
       };

@@ -1,5 +1,7 @@
+const crypto = require('crypto');
 const prisma = require('../config/db');
 const { notifyUser } = require('../utils/notify');
+const { ALLOWED_TYPES, uploadPublicFile } = require('../utils/storage');
 
 const caseWhere = (caseId) => {
     const numericId = Number(caseId);
@@ -119,14 +121,29 @@ const createMessage = (io) => async (req, res) => {
     }
 };
 
-const uploadAttachment = (req, res) => {
+/**
+ * POST /api/cases/:caseId/messages/upload
+ * Stores the photo in Supabase so every device and every teammate's backend can load it.
+ */
+const uploadAttachment = async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'A file is required.' });
-    res.status(201).json({
-        url: `/uploads/${req.file.filename}`,
-        name: req.file.originalname,
-        type: req.file.mimetype,
-        size: req.file.size,
-    });
+    try {
+        const extension = ALLOWED_TYPES[req.file.mimetype] || '';
+        const objectPath = `chat/${req.caseRecord.id}/${Date.now()}-${crypto.randomUUID()}${extension}`;
+        const url = await uploadPublicFile(objectPath, req.file.buffer, req.file.mimetype);
+        res.status(201).json({
+            url,
+            name: req.file.originalname,
+            type: req.file.mimetype,
+            size: req.file.size,
+        });
+    } catch (error) {
+        if (error?.code === 'SUPABASE_STORAGE_NOT_CONFIGURED') {
+            return res.status(503).json({ error: 'Photo sharing is not configured. Please contact support.' });
+        }
+        console.error('Unable to upload chat attachment:', error);
+        res.status(500).json({ error: 'Unable to upload this file.' });
+    }
 };
 
 module.exports = { authorizeCaseChat, createMessage, listMessages, uploadAttachment };
