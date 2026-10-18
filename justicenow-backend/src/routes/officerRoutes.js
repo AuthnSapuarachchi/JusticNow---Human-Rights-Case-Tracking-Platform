@@ -1,11 +1,13 @@
 const express = require('express');
 const router = express.Router();
 const { protectRoute, authorizeRoles } = require('../middlewares/authMiddleware');
+const { requireVerifiedRole } = require('../middlewares/verifiedRoleMiddleware');
 const {
     getDashboardStats,
     getOfficerCases,
     getOfficerCaseDetail,
     assignCase,
+    approveCase,
     updateCaseStatus,
     addCaseNote,
     getCaseNotes,
@@ -16,10 +18,11 @@ const {
     closeCase,
     escalateCase,
     getOrganizations,
+    getActiveOfficers,
 } = require('../controllers/officerController');
 
 // All officer routes are guarded for OFFICER and ADMIN roles
-router.use(protectRoute, authorizeRoles('OFFICER', 'ADMIN'));
+router.use(protectRoute, authorizeRoles('OFFICER', 'ADMIN'), requireVerifiedRole);
 
 // Dashboard stats
 router.get('/dashboard/stats', getDashboardStats);
@@ -27,12 +30,16 @@ router.get('/dashboard/stats', getDashboardStats);
 // Organizations helper for referrals
 router.get('/organizations', getOrganizations);
 
+// Officers helper for referring a case to another officer
+router.get('/officers', getActiveOfficers);
+
 // Case queue & details
 router.get('/cases', getOfficerCases);
 router.get('/cases/:caseId', getOfficerCaseDetail);
 
 // Case assignment & status transitions
 router.patch('/cases/:caseId/assign', assignCase);
+router.patch('/cases/:caseId/approve', approveCase);
 router.patch('/cases/:caseId/status', updateCaseStatus);
 
 // Case notes

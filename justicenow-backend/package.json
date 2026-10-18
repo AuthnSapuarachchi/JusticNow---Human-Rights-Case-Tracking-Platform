@@ -5,7 +5,9 @@
   "main": "src/server.js",
   "scripts": {
     "dev": "nodemon",
+    "test": "node --test \"tests/**/*.test.js\"",
     "seed:chat": "node scripts/seed-chat-case.js",
+    "seed:admin": "node scripts/seed-admin.js",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

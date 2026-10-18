@@ -4,6 +4,7 @@ const router = express.Router();
 
 // 1. Import Controllers
 const { submitCase, trackCase, getMyCases, getCase, getCaseStatus } = require('../controllers/caseController');
+const { createComplaint, listCaseComplaints } = require('../controllers/conductController');
 // const { getOfficerCases } = require('../controllers/officerController'); // Example for your teammates
 
 // 2. Import Middleware
@@ -18,6 +19,9 @@ router.post('/', protectRoute, upload.single('evidenceFile'), submitCase);
 router.post('/track', trackCase);
 router.get('/my', protectRoute, getMyCases);
 router.get('/:caseId/status', protectRoute, getCaseStatus);
+// A citizen reports the officer handling their case (admins review it; the officer never sees it).
+router.post('/:caseId/complaints', protectRoute, authorizeRoles('CITIZEN'), createComplaint);
+router.get('/:caseId/complaints', protectRoute, authorizeRoles('CITIZEN'), listCaseComplaints);
 router.get('/:caseId', protectRoute, getCase);
 
 // 🛡️ PROTECTED OFFICER ROUTES (Token Needed)

@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 
-import { Button, Text } from '@/design-system/components';
+import { BrandLogo, Button, Text } from '@/design-system/components';
 import { useColors } from '@/design-system/use-colors';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 
@@ -37,10 +37,7 @@ export function AuthLayout({
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={[styles.container, { backgroundColor: colors.canvas }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <View style={[styles.brandMark, { backgroundColor: colors.primarySoft }]}>
-          <Ionicons color={colors.primary} name="shield-checkmark" size={30} />
-        </View>
-        <Text color="primary" style={styles.eyebrow} variant="eyebrow">JUSTICENOW</Text>
+        <BrandLogo size={96} style={styles.brandMark} />
         <Text style={styles.title} variant="display">{title}</Text>
         <Text color="textSecondary" style={styles.subtitle}>{subtitle}</Text>
 
@@ -78,7 +75,7 @@ type FieldProps = {
   placeholder: string;
   colors: ReturnType<typeof useColors>;
   secureTextEntry?: boolean;
-  keyboardType?: 'email-address' | 'default';
+  keyboardType?: 'email-address' | 'default' | 'phone-pad' | 'numeric';
   autoCapitalize?: 'none' | 'sentences';
   trailing?: React.ReactNode;
 };
@@ -108,8 +105,7 @@ export function PasswordVisibilityButton({ visible, onPress }: { visible: boolea
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: { flexGrow: 1, justifyContent: 'center', padding: Layout.screenPadding, paddingVertical: Spacing.huge },
-  brandMark: { alignItems: 'center', borderRadius: Radius.lg, height: 64, justifyContent: 'center', marginBottom: Spacing.lg, width: 64 },
-  eyebrow: { marginBottom: Spacing.sm },
+  brandMark: { marginBottom: Spacing.lg },
   title: { marginBottom: Spacing.sm },
   subtitle: { marginBottom: Spacing.xxxl, maxWidth: 420 },
   form: { gap: Spacing.lg, marginBottom: Spacing.lg },

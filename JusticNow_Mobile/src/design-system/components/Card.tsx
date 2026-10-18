@@ -43,12 +43,15 @@ export function Card({ bordered = true, onPress, style, children, ...rest }: Car
   );
 }
 
+// Flat by design: separation comes from the hairline border, not a shadow.
+// Android `elevation` combined with a hairline border draws a dark, uneven edge
+// on some devices, so it is deliberately absent.
 const styles = StyleSheet.create({
   card: {
     borderRadius: Radius.lg,
     padding: Spacing.lg,
   },
   pressed: {
-    opacity: 0.75,
+    opacity: 0.7,
   },
 });

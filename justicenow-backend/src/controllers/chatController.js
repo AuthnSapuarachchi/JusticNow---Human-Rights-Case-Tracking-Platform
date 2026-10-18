@@ -1,4 +1,7 @@
+const crypto = require('crypto');
 const prisma = require('../config/db');
+const { notifyUser } = require('../utils/notify');
+const { ALLOWED_TYPES, uploadPublicFile } = require('../utils/storage');
 
 const caseWhere = (caseId) => {
     const numericId = Number(caseId);
@@ -32,10 +35,35 @@ const findCase = (caseId) => {
     return prisma.case.findFirst({ where: { trackingCode: { is: { code: String(caseId) } } } });
 };
 
+const canAccessCaseChat = (user, foundCase) => Boolean(
+    foundCase.approvedAt && (
+        (user.role === 'CITIZEN' && foundCase.reporterId === user.id) ||
+        (user.role === 'OFFICER' && foundCase.officerId === user.id)
+    )
+);
+
+const authorizeCaseChat = async (req, res, next) => {
+    try {
+        const foundCase = await findCase(req.params.caseId);
+        if (!foundCase) return res.status(404).json({ error: 'Case not found.' });
+        if (!canAccessCaseChat(req.user, foundCase)) {
+            return res.status(403).json({ error: 'Case messaging is available only to the citizen and assigned officer after approval.' });
+        }
+        req.caseRecord = foundCase;
+        next();
+    } catch (error) {
+        console.error('Unable to authorize case chat:', error);
+        res.status(500).json({ error: 'Unable to authorize case messaging.' });
+    }
+};
+
 const listMessages = async (req, res) => {
     try {
         const foundCase = await findCase(req.params.caseId);
         if (!foundCase) return res.status(404).json({ error: 'Case not found.' });
+        if (!canAccessCaseChat(req.user, foundCase)) {
+            return res.status(403).json({ error: 'Case messaging is available only to the citizen and assigned officer after approval.' });
+        }
 
         const messages = await prisma.message.findMany({
             where: { caseId: foundCase.id },
@@ -51,10 +79,17 @@ const listMessages = async (req, res) => {
 
 const createMessage = (io) => async (req, res) => {
     try {
-        const { content, attachment, recipientId } = req.body;
+        const { content, attachment } = req.body;
         const foundCase = await findCase(req.params.caseId);
         if (!foundCase) return res.status(404).json({ error: 'Case not found.' });
+        if (!canAccessCaseChat(req.user, foundCase)) {
+            return res.status(403).json({ error: 'Case messaging is available only to the citizen and assigned officer after approval.' });
+        }
         if (!content?.trim() && !attachment?.url) return res.status(400).json({ error: 'Message content or an attachment is required.' });
+
+        const caseParticipantId = req.user.id === foundCase.reporterId
+            ? foundCase.officerId
+            : foundCase.reporterId;
 
         const message = await prisma.message.create({
             data: {
@@ -63,7 +98,7 @@ const createMessage = (io) => async (req, res) => {
                 caseId: foundCase.id,
                 senderId: req.user.id,
                 officerId: req.user.role === 'OFFICER' ? req.user.id : null,
-                recipientId: recipientId ? Number(recipientId) : null,
+                recipientId: caseParticipantId,
                 attachmentUrl: attachment?.url || null,
                 attachmentName: attachment?.name || null,
                 attachmentType: attachment?.type || null,
@@ -72,6 +107,13 @@ const createMessage = (io) => async (req, res) => {
         });
         const serialized = serializeMessage(message);
         io.to(`case:${foundCase.id}`).emit('chat:message', serialized);
+        notifyUser(io, caseParticipantId, {
+            type: 'NEW_MESSAGE',
+            title: `New message from ${message.sender?.name || (req.user.role === 'OFFICER' ? 'your officer' : 'a citizen')}`,
+            body: serialized.content ? serialized.content.slice(0, 120) : 'Sent a photo',
+            href: `/cases/${foundCase.id}/messages`,
+            caseId: String(foundCase.id),
+        });
         res.status(201).json(serialized);
     } catch (error) {
         console.error('Unable to create message:', error);
@@ -79,14 +121,29 @@ const createMessage = (io) => async (req, res) => {
     }
 };
 
-const uploadAttachment = (req, res) => {
+/**
+ * POST /api/cases/:caseId/messages/upload
+ * Stores the photo in Supabase so every device and every teammate's backend can load it.
+ */
+const uploadAttachment = async (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'A file is required.' });
-    res.status(201).json({
-        url: `/uploads/${req.file.filename}`,
-        name: req.file.originalname,
-        type: req.file.mimetype,
-        size: req.file.size,
-    });
+    try {
+        const extension = ALLOWED_TYPES[req.file.mimetype] || '';
+        const objectPath = `chat/${req.caseRecord.id}/${Date.now()}-${crypto.randomUUID()}${extension}`;
+        const url = await uploadPublicFile(objectPath, req.file.buffer, req.file.mimetype);
+        res.status(201).json({
+            url,
+            name: req.file.originalname,
+            type: req.file.mimetype,
+            size: req.file.size,
+        });
+    } catch (error) {
+        if (error?.code === 'SUPABASE_STORAGE_NOT_CONFIGURED') {
+            return res.status(503).json({ error: 'Photo sharing is not configured. Please contact support.' });
+        }
+        console.error('Unable to upload chat attachment:', error);
+        res.status(500).json({ error: 'Unable to upload this file.' });
+    }
 };
 
-module.exports = { createMessage, listMessages, uploadAttachment };
+module.exports = { authorizeCaseChat, createMessage, listMessages, uploadAttachment };

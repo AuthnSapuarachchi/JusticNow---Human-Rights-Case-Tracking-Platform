@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Image, Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
+import { Linking, Modal, Pressable, StyleSheet, View } from 'react-native';
 
 import { CaseEvidenceItem } from '@/api/officerApi';
+import { RemoteImage } from '@/components/RemoteImage';
 import { Badge, Card, Text } from '@/design-system/components';
 import { Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
@@ -30,7 +31,7 @@ export function EvidenceViewer({ evidence }: EvidenceViewerProps) {
   const isImageFile = (fileType: string, url: string) => {
     return (
       fileType?.toLowerCase().includes('image') ||
-      /\.(jpg|jpeg|png|gif|webp)$/i.test(url)
+      /\.(jpg|jpeg|png|gif|webp|heic|heif)$/i.test(url)
     );
   };
 
@@ -57,10 +58,11 @@ export function EvidenceViewer({ evidence }: EvidenceViewerProps) {
             >
               {isImg ? (
                 <View style={styles.imageThumbnailWrapper}>
-                  <Image
-                    resizeMode="cover"
-                    source={{ uri: item.fileUrl }}
+                  <RemoteImage
+                    accessibilityLabel={`Evidence photo ${item.id || index + 1}`}
+                    contentFit="cover"
                     style={styles.thumbnail}
+                    uri={item.fileUrl}
                   />
                   <View style={styles.imageOverlay}>
                     <Ionicons color="#ffffff" name="expand-outline" size={18} />
@@ -105,10 +107,11 @@ export function EvidenceViewer({ evidence }: EvidenceViewerProps) {
             <Ionicons color="#ffffff" name="close" size={28} />
           </Pressable>
           {selectedImage && (
-            <Image
-              resizeMode="contain"
-              source={{ uri: selectedImage }}
+            <RemoteImage
+              contentFit="contain"
               style={styles.fullImage}
+              tone="light"
+              uri={selectedImage}
             />
           )}
         </View>

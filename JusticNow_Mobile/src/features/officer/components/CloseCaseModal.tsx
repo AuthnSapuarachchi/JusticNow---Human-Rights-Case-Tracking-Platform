@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Alert, Modal, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import { closeCase, OfficerCaseDetail } from '@/api/officerApi';
-import { Button, Text } from '@/design-system/components';
+import { closeCase, CloseOutcome, OfficerCaseDetail } from '@/api/officerApi';
+import { Button, FilterChip, Text } from '@/design-system/components';
 import { Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
 
@@ -14,24 +14,50 @@ interface CloseCaseModalProps {
   onSuccess: (updatedCase: OfficerCaseDetail) => void;
 }
 
+const OUTCOME_OPTIONS: { value: CloseOutcome; label: string }[] = [
+  { value: 'RESOLVED_FOR_USER', label: 'Resolved for user' },
+  { value: 'REFERRED_EXTERNALLY', label: 'Referred externally' },
+  { value: 'INSUFFICIENT_EVIDENCE', label: 'Insufficient evidence' },
+  { value: 'WITHDRAWN', label: 'Withdrawn by user' },
+  { value: 'OTHER', label: 'Other' },
+];
+
 export function CloseCaseModal({ visible, caseId, onClose, onSuccess }: CloseCaseModalProps) {
   const colors = useColors();
   const [reason, setReason] = useState('');
+  const [outcome, setOutcome] = useState<CloseOutcome>('RESOLVED_FOR_USER');
   const [loading, setLoading] = useState(false);
 
-  const handleCloseCase = async () => {
+  const submitClose = async () => {
     try {
       setLoading(true);
-      const res = await closeCase(caseId, reason.trim() || undefined);
+      const res = await closeCase(caseId, { reason: reason.trim(), outcome });
       Alert.alert('Case Closed', 'The case has been marked as CLOSED.');
       onSuccess(res.case);
       onClose();
       setReason('');
+      setOutcome('RESOLVED_FOR_USER');
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Unable to close case.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCloseCase = () => {
+    if (reason.trim().length < 3) {
+      Alert.alert('Validation Error', 'Please enter a closing reason (at least 3 characters).');
+      return;
+    }
+
+    Alert.alert(
+      'Close this case?',
+      'Closing is final: the case leaves your active workload and no further info requests or referrals can be made.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Close Case', style: 'destructive', onPress: submitClose },
+      ]
+    );
   };
 
   return (
@@ -54,7 +80,25 @@ export function CloseCaseModal({ visible, caseId, onClose, onSuccess }: CloseCas
           </View>
 
           <Text color="textSecondary" style={styles.description} variant="body">
-            Closing a case indicates that all inquiries, referrals, or legal remedies have concluded. You can optionally document the resolution rationale below.
+            Closing a case indicates that all inquiries, referrals, or legal remedies have concluded. Select the outcome and document the closing reason below.
+          </Text>
+
+          <Text color="textSecondary" variant="caption">
+            OUTCOME *
+          </Text>
+          <View style={styles.chipRow}>
+            {OUTCOME_OPTIONS.map((option) => (
+              <FilterChip
+                key={option.value}
+                label={option.label}
+                onPress={() => setOutcome(option.value)}
+                selected={outcome === option.value}
+              />
+            ))}
+          </View>
+
+          <Text color="textSecondary" variant="caption">
+            CLOSING REASON *
           </Text>
 
           <TextInput
@@ -76,6 +120,7 @@ export function CloseCaseModal({ visible, caseId, onClose, onSuccess }: CloseCas
 
           <View style={styles.buttonRow}>
             <Button
+              disabled={reason.trim().length < 3}
               fullWidth
               label={loading ? 'Closing Case...' : 'Confirm and Close Case'}
               loading={loading}
@@ -117,7 +162,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.md,
     lineHeight: 20,
   },
+  chipRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+    marginTop: Spacing.xs,
+    marginBottom: Spacing.md,
+  },
   textArea: {
+    marginTop: Spacing.xs,
     borderRadius: Radius.md,
     borderWidth: 1,
     padding: Spacing.md,

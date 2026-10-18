@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Pressable,
@@ -13,10 +13,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { DashboardStats, getDashboardStats } from '@/api/officerApi';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
+import { NotificationBell } from '@/components/NotificationBell';
 import { useAuth } from '@/context/AuthContext';
-import { Badge, Button, Card, Text } from '@/design-system/components';
+import { Badge, BrandLogo, Button, Card, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
+import { formatCaseDate, getOfficerStatusConfig } from '@/features/cases/statusUtils';
 
 export function OfficerDashboardScreen() {
   const colors = useColors();
@@ -48,6 +50,19 @@ export function OfficerDashboardScreen() {
     loadStats();
   }, [loadStats]);
 
+  // Refresh silently when returning from a case so counts reflect recent changes
+  const hasFocusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocusedOnce.current) {
+        getDashboardStats()
+          .then(setStats)
+          .catch(() => {});
+      }
+      hasFocusedOnce.current = true;
+    }, [])
+  );
+
   const handleLogout = async () => {
     await logout();
     router.replace('/login' as any);
@@ -73,8 +88,8 @@ export function OfficerDashboardScreen() {
       label: 'Assigned to Me',
       value: stats?.totalAssigned ?? 0,
       icon: 'person-outline' as const,
-      color: '#2875d0',
-      bg: '#e7f0fc',
+      color: '#0F2B5B',
+      bg: '#DCE3EF',
       params: { assignedToMe: 'true' },
     },
     {
@@ -84,7 +99,7 @@ export function OfficerDashboardScreen() {
       icon: 'sparkles-outline' as const,
       color: '#28725b',
       bg: '#e2f2ed',
-      params: { status: 'NEW,SUBMITTED' },
+      params: { assignedToMe: 'true', status: 'NEW,SUBMITTED' },
     },
     {
       id: 'urgent',
@@ -93,7 +108,7 @@ export function OfficerDashboardScreen() {
       icon: 'flame-outline' as const,
       color: '#d04f28',
       bg: '#fcebe7',
-      params: { priority: 'URGENT' },
+      params: { assignedToMe: 'true', priority: 'URGENT' },
     },
     {
       id: 'waiting',
@@ -102,7 +117,7 @@ export function OfficerDashboardScreen() {
       icon: 'time-outline' as const,
       color: '#b96925',
       bg: '#fff0df',
-      params: { status: 'WAITING_FOR_USER,ACTION_REQUIRED' },
+      params: { assignedToMe: 'true', status: 'WAITING_FOR_USER,ACTION_REQUIRED' },
     },
     {
       id: 'investigating',
@@ -111,7 +126,7 @@ export function OfficerDashboardScreen() {
       icon: 'search-outline' as const,
       color: '#5b3fc7',
       bg: '#efeafd',
-      params: { status: 'INVESTIGATING,UNDER_REVIEW' },
+      params: { assignedToMe: 'true', status: 'INVESTIGATING,UNDER_REVIEW' },
     },
     {
       id: 'recent',
@@ -120,7 +135,7 @@ export function OfficerDashboardScreen() {
       icon: 'sync-outline' as const,
       color: '#3178c6',
       bg: '#e8f0fe',
-      params: { sortBy: 'updatedAt', sortOrder: 'desc' },
+      params: { assignedToMe: 'true', sortBy: 'updatedAt', sortOrder: 'desc' },
     },
   ];
 
@@ -141,9 +156,7 @@ export function OfficerDashboardScreen() {
         {/* Top Header */}
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={[styles.avatarBox, { backgroundColor: colors.primarySoft }]}>
-              <Ionicons color={colors.primary} name="shield-checkmark" size={26} />
-            </View>
+            <BrandLogo size={52} />
             <View>
               <Text color="primary" variant="eyebrow">
                 OFFICER PORTAL
@@ -154,15 +167,18 @@ export function OfficerDashboardScreen() {
             </View>
           </View>
 
-          <Pressable
-            accessibilityLabel="Log out"
-            accessibilityRole="button"
-            hitSlop={8}
-            onPress={handleLogout}
-            style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
-          >
-            <Ionicons color={colors.textSecondary} name="log-out-outline" size={22} />
-          </Pressable>
+          <View style={styles.headerActions}>
+            <NotificationBell />
+            <Pressable
+              accessibilityLabel="Log out"
+              accessibilityRole="button"
+              hitSlop={8}
+              onPress={handleLogout}
+              style={({ pressed }) => [styles.logoutButton, pressed && styles.pressed]}
+            >
+              <Ionicons color={colors.textSecondary} name="log-out-outline" size={22} />
+            </Pressable>
+          </View>
         </View>
 
         {/* Officer Welcome Card */}
@@ -240,6 +256,62 @@ export function OfficerDashboardScreen() {
               </Pressable>
             ))}
           </View>
+        )}
+
+        {/* Recently Updated Cases */}
+        {stats && (
+          <>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle} variant="heading">
+                Recently Updated
+              </Text>
+              <Text color="textSecondary" variant="caption">
+                Your latest assigned cases by last activity
+              </Text>
+            </View>
+
+            {!stats.recentCases || stats.recentCases.length === 0 ? (
+              <Card style={[styles.emptyRecent, { backgroundColor: colors.surfaceMuted }]}>
+                <Ionicons color={colors.textTertiary} name="file-tray-outline" size={28} />
+                <Text color="textSecondary" style={styles.centerText} variant="body">
+                  No cases are assigned to you yet. Pick one up from the case queue.
+                </Text>
+              </Card>
+            ) : (
+              <View style={styles.recentList}>
+                {stats.recentCases.map((item) => {
+                  const cfg = getOfficerStatusConfig(item.status);
+                  return (
+                    <Pressable
+                      accessibilityLabel={`Open case ${item.trackingCode?.code || item.id}`}
+                      accessibilityRole="button"
+                      key={item.id}
+                      onPress={() => router.push(`/officer/${item.id}` as any)}
+                      style={({ pressed }) => [pressed && styles.pressed]}
+                    >
+                      <Card bordered style={styles.recentCard}>
+                        <View style={styles.recentTopRow}>
+                          <Text variant="bodyStrong">{item.trackingCode?.code || `CASE-${item.id}`}</Text>
+                          <View style={styles.recentBadges}>
+                            {item.priority === 'URGENT' && <Badge label="Urgent" tone="danger" />}
+                            <View style={[styles.recentStatus, { backgroundColor: cfg.background }]}>
+                              <Text style={[styles.recentStatusText, { color: cfg.color }]}>{cfg.label}</Text>
+                            </View>
+                          </View>
+                        </View>
+                        <Text color="textSecondary" numberOfLines={2} variant="caption">
+                          {item.description}
+                        </Text>
+                        <Text color="textTertiary" variant="caption">
+                          Updated {formatCaseDate(item.updatedAt)}
+                        </Text>
+                      </Card>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            )}
+          </>
         )}
 
         {/* Quick Actions */}
@@ -341,17 +413,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: Spacing.sm,
   },
+  headerActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: Spacing.sm,
+  },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: Spacing.md,
-  },
-  avatarBox: {
-    width: 48,
-    height: 48,
-    borderRadius: Radius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   headerTitle: {
     marginTop: 2,
@@ -452,5 +522,39 @@ const styles = StyleSheet.create({
   },
   signOutWrapper: {
     marginTop: Spacing.lg,
+  },
+  recentList: {
+    gap: Spacing.sm,
+  },
+  recentCard: {
+    padding: Spacing.md,
+    gap: 4,
+  },
+  recentTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  recentBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+  },
+  recentStatus: {
+    borderRadius: Radius.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 2,
+  },
+  recentStatusText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  emptyRecent: {
+    padding: Spacing.xl,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  centerText: {
+    textAlign: 'center',
   },
 });

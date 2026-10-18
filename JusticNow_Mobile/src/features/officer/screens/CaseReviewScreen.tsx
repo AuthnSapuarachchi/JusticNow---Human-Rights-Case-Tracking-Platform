@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ActivityIndicator,
   Alert,
@@ -13,11 +13,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
+  approveCase,
   assignCase,
   getOfficerCase,
   OfficerCaseDetail,
 } from '@/api/officerApi';
-import { Badge, Button, Card, Text } from '@/design-system/components';
+import { useAuth } from '@/context/AuthContext';
+import { Badge, Button, Card, HorizontalScroller, Text } from '@/design-system/components';
 import { Layout, Radius, Spacing } from '@/design-system/spacing';
 import { useColors } from '@/design-system/use-colors';
 import {
@@ -35,6 +37,9 @@ import {
   RequestInfoModal,
 } from '../components';
 
+/** Order of the section tabs, used to keep the active tab scrolled into view. */
+const TAB_ORDER = ['evidence', 'notes', 'info', 'referrals', 'actions'] as const;
+
 interface CaseReviewScreenProps {
   caseId?: string;
 }
@@ -42,14 +47,20 @@ interface CaseReviewScreenProps {
 export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) {
   const colors = useColors();
   const router = useRouter();
+  const { session } = useAuth();
   const params = useLocalSearchParams<{ id?: string; caseId?: string }>();
   const activeCaseId = propCaseId || params.id || params.caseId;
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/officer/queue' as any);
+  };
 
   const [caseDetail, setCaseDetail] = useState<OfficerCaseDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [assigning, setAssigning] = useState(false);
+  const [approving, setApproving] = useState(false);
 
   // Active section tab
   const [activeTab, setActiveTab] = useState<'evidence' | 'notes' | 'info' | 'referrals' | 'actions'>(
@@ -86,17 +97,59 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
     fetchCaseDetail();
   }, [fetchCaseDetail]);
 
+  const silentRefresh = useCallback(() => {
+    if (!activeCaseId) return;
+    getOfficerCase(activeCaseId)
+      .then(setCaseDetail)
+      .catch(() => {});
+  }, [activeCaseId]);
+
+  // Mutation responses only carry the core case fields, so merge them in and
+  // refetch to pull the updated timeline/history
+  const applyCaseUpdate = (updatedCase: Partial<OfficerCaseDetail>) => {
+    setCaseDetail((prev) => (prev ? { ...prev, ...updatedCase } : prev));
+    silentRefresh();
+  };
+
+  // Silently refetch when returning from the Update Status screen
+  const hasFocusedOnce = useRef(false);
+  useFocusEffect(
+    useCallback(() => {
+      if (hasFocusedOnce.current) silentRefresh();
+      hasFocusedOnce.current = true;
+    }, [silentRefresh])
+  );
+
   const handleAssignToMe = async () => {
     if (!caseDetail) return;
     try {
       setAssigning(true);
       const res = await assignCase(caseDetail.id);
       Alert.alert('Case Assigned', res.message || 'Case assigned to you successfully.');
-      setCaseDetail(res.case);
+      applyCaseUpdate(res.case);
     } catch (err: any) {
       Alert.alert('Assignment Failed', err?.message || 'Unable to assign case.');
     } finally {
       setAssigning(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!caseDetail) return;
+    try {
+      setApproving(true);
+      const result = await approveCase(caseDetail.id);
+      setCaseDetail((current) => current ? {
+        ...current,
+        ...result.case,
+        statusHistory: [result.statusHistory, ...current.statusHistory],
+        actions: [result.action, ...current.actions],
+      } : current);
+      Alert.alert('Case Approved', result.message);
+    } catch (err: any) {
+      Alert.alert('Approval Failed', err?.message || 'Unable to approve this case.');
+    } finally {
+      setApproving(false);
     }
   };
 
@@ -125,6 +178,16 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
 
   const statusConfig = getOfficerStatusConfig(caseDetail.status);
   const isUrgent = caseDetail.priority === 'URGENT';
+  const isClosed = caseDetail.status === 'CLOSED';
+  // Mirrors the backend rule: officers may only modify cases assigned to them
+  const canModify =
+    session?.user.role === 'ADMIN' ||
+    (caseDetail.officerId !== null && Number(caseDetail.officerId) === Number(session?.user.id));
+  const canAct = canModify && !isClosed;
+  const isAssignedOfficer =
+    session?.user.role === 'OFFICER' &&
+    caseDetail.officerId !== null &&
+    Number(caseDetail.officerId) === Number(session.user.id);
 
   return (
     <SafeAreaView edges={['top']} style={[styles.container, { backgroundColor: colors.canvas }]}>
@@ -133,7 +196,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
         <Pressable
           accessibilityLabel="Back to Queue"
           hitSlop={8}
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
           <Ionicons color={colors.textPrimary} name="arrow-back" size={24} />
@@ -285,18 +348,65 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
               />
             )}
 
-            <Button
-              icon="sync-outline"
-              label="Update Status"
-              onPress={() => router.push(`/officer/${caseDetail.id}/status` as any)}
-              variant="primary"
-            />
+            {isAssignedOfficer && !caseDetail.approvedAt ? (
+              <Button
+                icon="checkmark-circle-outline"
+                label={approving ? 'Approving...' : 'Approve Case'}
+                loading={approving}
+                onPress={handleApprove}
+                variant="primary"
+              />
+            ) : null}
+
+            {isAssignedOfficer && caseDetail.approvedAt ? (
+              <Button
+                icon="chatbubble-ellipses-outline"
+                label="Message Citizen"
+                onPress={() => router.push(`/cases/${caseDetail.id}/messages` as any)}
+                variant="secondary"
+              />
+            ) : null}
+
+            {canModify && (
+              <Button
+                icon="sync-outline"
+                label="Update Status"
+                onPress={() => router.push(`/officer/${caseDetail.id}/status` as any)}
+                variant="primary"
+              />
+            )}
           </View>
+
+          {!canModify && (
+            <View style={[styles.readOnlyNotice, { backgroundColor: colors.surfaceMuted }]}>
+              <Ionicons color={colors.textSecondary} name="information-circle-outline" size={18} />
+              <Text color="textSecondary" style={styles.readOnlyText} variant="caption">
+                {caseDetail.officer
+                  ? 'This case is assigned to another officer. You can view it but not modify it.'
+                  : 'Assign this case to yourself to update status, add notes, request info, refer, or close it.'}
+              </Text>
+            </View>
+          )}
+
+          {isClosed && (
+            <View style={[styles.readOnlyNotice, { backgroundColor: colors.surfaceMuted }]}>
+              <Ionicons color={colors.textSecondary} name="lock-closed-outline" size={18} />
+              <Text color="textSecondary" style={styles.readOnlyText} variant="caption">
+                This case is closed. You can still add internal notes or reopen it via Update Status.
+              </Text>
+            </View>
+          )}
         </Card>
 
         {/* Section Tabs Header */}
         <View style={styles.tabsBar}>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroll}>
+          <HorizontalScroller
+            accessibilityLabel="Case sections"
+            activeIndex={TAB_ORDER.indexOf(activeTab)}
+            backgroundColor="#FFFFFF"
+            gap={0}
+            inset={Spacing.sm}
+          >
             <Pressable
               onPress={() => setActiveTab('evidence')}
               style={[
@@ -383,10 +493,10 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 }}
                 variant="caption"
               >
-                AUDIT LOG ({caseDetail.actions?.length || 0})
+                TIMELINE ({caseDetail.actions?.length || 0})
               </Text>
             </Pressable>
-          </ScrollView>
+          </HorizontalScroller>
         </View>
 
         {/* Tab Content Display */}
@@ -397,6 +507,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
 
           {activeTab === 'notes' && (
             <CaseNotesPanel
+              canAdd={canModify}
               caseId={caseDetail.id}
               initialNotes={caseDetail.notes || []}
               onNoteAdded={(newNote) => {
@@ -408,15 +519,17 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
           {activeTab === 'info' && (
             <View style={styles.infoTabContainer}>
               <View style={styles.infoTabHeader}>
-                <Text color="textSecondary" variant="caption">
+                <Text color="textSecondary" style={styles.sectionLabel} variant="caption">
                   COMMUNICATIONS & REQUESTS TO CITIZEN
                 </Text>
-                <Button
-                  icon="help-circle-outline"
-                  label="Request Info"
-                  onPress={() => setShowInfoModal(true)}
-                  variant="secondary"
-                />
+                {canAct && (
+                  <Button
+                    icon="help-circle-outline"
+                    label="Request Info"
+                    onPress={() => setShowInfoModal(true)}
+                    variant="secondary"
+                  />
+                )}
               </View>
 
               {(!caseDetail.infoRequests || caseDetail.infoRequests.length === 0) ? (
@@ -451,15 +564,17 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
           {activeTab === 'referrals' && (
             <View style={styles.referralsContainer}>
               <View style={styles.infoTabHeader}>
-                <Text color="textSecondary" variant="caption">
+                <Text color="textSecondary" style={styles.sectionLabel} variant="caption">
                   LEGAL ORGANIZATIONS & EXTERNAL COUNSEL
                 </Text>
-                <Button
-                  icon="business-outline"
-                  label="New Referral"
-                  onPress={() => setShowReferralModal(true)}
-                  variant="secondary"
-                />
+                {canAct && (
+                  <Button
+                    icon="business-outline"
+                    label="New Referral"
+                    onPress={() => setShowReferralModal(true)}
+                    variant="secondary"
+                  />
+                )}
               </View>
 
               {(!caseDetail.referrals || caseDetail.referrals.length === 0) ? (
@@ -499,6 +614,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
 
           {activeTab === 'actions' && (
             <ActionHistoryFeed
+              canRecord={canModify}
               caseId={caseDetail.id}
               initialActions={caseDetail.actions || []}
               onActionCreated={(newAction) => {
@@ -511,11 +627,13 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
         </View>
 
         {/* Case Administration Footer Operations */}
+        {canAct && (
         <Card bordered style={styles.adminFooterCard}>
           <Text style={{ fontWeight: '700' }} variant="caption">CASE SUPERVISION & REMEDIES</Text>
           <View style={styles.adminButtonsRow}>
             {!isUrgent && (
               <Button
+                fullWidth
                 icon="flame-outline"
                 label="Escalate Case"
                 onPress={() => setShowEscalateModal(true)}
@@ -524,6 +642,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
             )}
             {caseDetail.status !== 'CLOSED' && (
               <Button
+                fullWidth
                 icon="lock-closed-outline"
                 label="Close Case"
                 onPress={() => setShowCloseModal(true)}
@@ -532,6 +651,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
             )}
           </View>
         </Card>
+        )}
       </ScrollView>
 
       {/* Modals */}
@@ -548,6 +668,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
                 }
               : null
           );
+          silentRefresh();
         }}
         visible={showInfoModal}
       />
@@ -555,10 +676,16 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
       <ReferralModal
         caseId={caseDetail.id}
         onClose={() => setShowReferralModal(false)}
-        onSuccess={(newReferral) => {
+        onSuccess={(newReferral, reassigned) => {
+          if (reassigned && session?.user.role !== 'ADMIN') {
+            // Case was handed to another officer, so this officer can no longer act on it
+            router.replace('/officer' as any);
+            return;
+          }
           setCaseDetail((prev) =>
             prev ? { ...prev, referrals: [newReferral, ...(prev.referrals || [])] } : null
           );
+          silentRefresh();
         }}
         visible={showReferralModal}
       />
@@ -566,18 +693,14 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
       <CloseCaseModal
         caseId={caseDetail.id}
         onClose={() => setShowCloseModal(false)}
-        onSuccess={(updatedCase) => {
-          setCaseDetail(updatedCase);
-        }}
+        onSuccess={applyCaseUpdate}
         visible={showCloseModal}
       />
 
       <EscalateConfirmModal
         caseId={caseDetail.id}
         onClose={() => setShowEscalateModal(false)}
-        onSuccess={(updatedCase) => {
-          setCaseDetail(updatedCase);
-        }}
+        onSuccess={applyCaseUpdate}
         visible={showEscalateModal}
       />
     </SafeAreaView>
@@ -599,13 +722,24 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   topBar: {
+    backgroundColor: '#FFFFFF',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: Layout.screenPadding,
-    paddingVertical: Spacing.sm,
+    paddingVertical: Spacing.md,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   backBtn: {
+    alignItems: 'center',
+    borderRadius: Radius.pill,
+    justifyContent: 'center',
+    minHeight: Layout.minTapTarget,
+    minWidth: Layout.minTapTarget,
     padding: Spacing.xs,
   },
   topBarTitle: {
@@ -615,18 +749,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   scrollContent: {
+    paddingBottom: Layout.bottomNavInset,
     paddingHorizontal: Layout.screenPadding,
-    paddingBottom: Spacing.xxxl,
-    gap: Spacing.md,
+    paddingTop: Spacing.md,
+    gap: Spacing.lg,
   },
   pressed: {
     opacity: 0.75,
   },
   urgentBanner: {
+    borderLeftWidth: 4,
+    borderLeftColor: '#B3261E',
     flexDirection: 'row',
     alignItems: 'center',
     padding: Spacing.md,
-    borderRadius: Radius.md,
+    borderRadius: Radius.lg,
     gap: Spacing.sm,
   },
   urgentBannerText: {
@@ -634,8 +771,9 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   overviewCard: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    gap: Spacing.lg,
   },
   overviewTopRow: {
     flexDirection: 'row',
@@ -651,7 +789,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
   },
@@ -662,7 +800,7 @@ const styles = StyleSheet.create({
   priorityPill: {
     paddingHorizontal: Spacing.sm,
     paddingVertical: 4,
-    borderRadius: Radius.sm,
+    borderRadius: Radius.pill,
   },
   descBlock: {
     gap: 4,
@@ -683,8 +821,8 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     gap: Spacing.md,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#edf1f0',
-    paddingTop: Spacing.md,
+    borderTopColor: '#E3E7EC',
+    paddingTop: Spacing.lg,
   },
   metaCell: {
     width: '46%',
@@ -692,23 +830,27 @@ const styles = StyleSheet.create({
   },
   quickOpsRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: Spacing.sm,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#edf1f0',
-    paddingTop: Spacing.md,
-    justifyContent: 'flex-end',
+    borderTopColor: '#E3E7EC',
+    paddingTop: Spacing.lg,
+    justifyContent: 'flex-start',
   },
   tabsBar: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#d6dfdf',
-  },
-  tabsScroll: {
-    flexDirection: 'row',
+    backgroundColor: '#FFFFFF',
+    borderRadius: Radius.lg,
+    elevation: 1,
+    shadowColor: '#0D1B2A',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 5,
   },
   tabItem: {
-    paddingVertical: Spacing.sm,
+    minHeight: Layout.minTapTarget,
+    justifyContent: 'center',
+    paddingVertical: Spacing.md,
     paddingHorizontal: Spacing.md,
-    marginRight: Spacing.sm,
   },
   tabContentArea: {
     paddingVertical: Spacing.xs,
@@ -718,8 +860,14 @@ const styles = StyleSheet.create({
   },
   infoTabHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  sectionLabel: {
+    flex: 1,
+    minWidth: 160,
   },
   infoReqCard: {
     padding: Spacing.md,
@@ -727,8 +875,10 @@ const styles = StyleSheet.create({
   },
   infoReqHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.xs,
   },
   referralsContainer: {
     gap: Spacing.md,
@@ -761,12 +911,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   adminFooterCard: {
-    padding: Spacing.lg,
-    gap: Spacing.md,
+    borderRadius: Radius.xl,
+    padding: Spacing.xl,
+    gap: Spacing.lg,
     marginTop: Spacing.md,
   },
   adminButtonsRow: {
-    flexDirection: 'row',
     gap: Spacing.sm,
+  },
+  readOnlyNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
+    padding: Spacing.sm,
+    borderRadius: Radius.md,
+  },
+  readOnlyText: {
+    flex: 1,
   },
 });

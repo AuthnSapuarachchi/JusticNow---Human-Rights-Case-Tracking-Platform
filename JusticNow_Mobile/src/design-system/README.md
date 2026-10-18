@@ -29,6 +29,11 @@ The Figma exports and the already-merged screens used different colours:
 **Figma wins.** It is the approved design, EP-09 owns the call, and the merged
 screens were written before any design system existed to follow.
 
+**Update:** the primary blue has since moved from Figma's `#1355D6` to `#0F2B5B`,
+the navy of the app logo and icon tile, so the UI matches the brand mark. Dark mode
+uses a lightened version of the same hue (`#81A2DA`). Canvas and the rest of the palette
+are unchanged.
+
 The teal is not discarded — it survives as `success` / `successSoft`, which is
 what it was actually doing on those screens (resolved states, the secure-messaging
 lock). So the migration is mostly mechanical.

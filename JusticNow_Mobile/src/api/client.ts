@@ -1,7 +1,26 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const API_URL = 'http://192.168.134.76:5000';
+const API_PORT = 5000;
+
+// Prefer an explicit override; otherwise reach the backend on the same host that serves the app,
+// so the address follows the dev machine's current LAN IP instead of a hardcoded one.
+function resolveApiUrl(): string {
+	const override = process.env.EXPO_PUBLIC_API_URL;
+	if (override) return override.replace(/\/$/, '');
+
+	if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+		return `http://${window.location.hostname}:${API_PORT}`;
+	}
+
+	const devHost = Constants.expoConfig?.hostUri?.split(':')[0];
+	if (devHost) return `http://${devHost}:${API_PORT}`;
+
+	return `http://localhost:${API_PORT}`;
+}
+
+const API_URL = resolveApiUrl();
 export type ApiError = { error?: string };
 
 type StoredSession = { accessToken?: string; refreshToken?: string };
@@ -23,6 +42,29 @@ async function refreshAccessToken(session: StoredSession): Promise<string | null
 	if (!result.accessToken) return null;
 	await AsyncStorage.setItem('justicenow.session', JSON.stringify({ ...session, accessToken: result.accessToken }));
 	return result.accessToken;
+}
+
+/** Seconds until the JWT expires, or 0 if it cannot be read. */
+function secondsUntilExpiry(token: string): number {
+	try {
+		const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+		const { exp } = JSON.parse(atob(payload.padEnd(payload.length + ((4 - (payload.length % 4)) % 4), '='))) as { exp?: number };
+		return exp ? exp - Date.now() / 1000 : 0;
+	} catch {
+		return 0;
+	}
+}
+
+/**
+ * A usable access token, refreshed first if it expires within a minute.
+ * Long-lived connections (the chat socket) must use this rather than the
+ * token captured at login, which lasts only 15 minutes.
+ */
+export async function getFreshAccessToken(): Promise<string | undefined> {
+	const session = await readSession();
+	if (!session?.accessToken) return undefined;
+	if (secondsUntilExpiry(session.accessToken) > 60) return session.accessToken;
+	return (await refreshAccessToken(session)) ?? session.accessToken;
 }
 
 export async function request<T>(path: string, options: RequestInit = {}, hasRetried = false): Promise<T> {
@@ -53,7 +95,7 @@ export async function request<T>(path: string, options: RequestInit = {}, hasRet
 export async function requestMultipart<T>(path: string, body: FormData, hasRetried = false): Promise<T> {
 	const session = await readSession();
 	const controller = new AbortController();
-	const timeout = setTimeout(() => controller.abort(), 15000);
+	const timeout = setTimeout(() => controller.abort(), 60000);
 
 	try {
 		console.info(`[API] multipart POST ${API_URL}${path}`);
@@ -85,7 +127,7 @@ export async function requestMultipart<T>(path: string, body: FormData, hasRetri
 		return result;
 	} catch (error) {
 		if (error instanceof Error && error.name === 'AbortError') {
-			throw new Error('The server did not respond within 15 seconds. Check that the backend is running and the API address is reachable.');
+			throw new Error('The server did not respond within 60 seconds. Check that the backend is running and the API address is reachable.');
 		}
 		throw error;
 	} finally {

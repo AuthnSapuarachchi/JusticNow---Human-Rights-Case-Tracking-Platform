@@ -34,6 +34,10 @@ export function UpdateStatusScreen({ caseId: propCaseId }: UpdateStatusScreenPro
   const router = useRouter();
   const params = useLocalSearchParams<{ id?: string; caseId?: string }>();
   const activeCaseId = propCaseId || params.id || params.caseId;
+  const handleBack = () => {
+    if (router.canGoBack()) router.back();
+    else router.replace('/officer/queue' as any);
+  };
 
   const [caseRecord, setCaseRecord] = useState<OfficerCaseDetail | null>(null);
   const [selectedStatus, setSelectedStatus] = useState<OfficerCaseStatus | null>(null);
@@ -110,7 +114,7 @@ export function UpdateStatusScreen({ caseId: propCaseId }: UpdateStatusScreenPro
         [
           {
             text: 'OK',
-            onPress: () => router.back(),
+            onPress: handleBack,
           },
         ]
       );
@@ -141,7 +145,7 @@ export function UpdateStatusScreen({ caseId: propCaseId }: UpdateStatusScreenPro
         <Pressable
           accessibilityLabel="Back"
           hitSlop={8}
-          onPress={() => router.back()}
+          onPress={handleBack}
           style={({ pressed }) => [styles.backBtn, pressed && styles.pressed]}
         >
           <Ionicons color={colors.textPrimary} name="arrow-back" size={24} />

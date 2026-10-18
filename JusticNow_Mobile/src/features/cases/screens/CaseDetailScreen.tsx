@@ -1,40 +1,258 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CaseDetail, StatusUpdate, getCaseDetail, getCaseStatus } from '@/api/caseApi';
+import { COMPLAINT_STATUS, CitizenComplaint, complaintReasonLabel, getCaseComplaints, isComplaintActive } from '@/api/conductApi';
 import { BottomNavBar, NavTab } from '@/components/BottomNavBar';
+import { Badge, Button, Card, StateView, Text, useColors } from '@/design-system';
+import { Layout, Radius, Spacing } from '@/design-system/spacing';
+import { ReportOfficerSheet } from '@/features/cases/components/ReportOfficerSheet';
+import { StatusPill } from '@/features/cases/components/StatusPill';
 import { formatCaseDate, formatCaseDateTime, getStatusConfig } from '@/features/cases/statusUtils';
 
 interface CaseDetailScreenProps { caseId: string; }
 
 export function CaseDetailScreen({ caseId }: CaseDetailScreenProps) {
   const router = useRouter();
+  const colors = useColors();
   const [detail, setDetail] = useState<CaseDetail | null>(null);
   const [timeline, setTimeline] = useState<StatusUpdate[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [complaints, setComplaints] = useState<CitizenComplaint[]>([]);
+  const [isReporting, setIsReporting] = useState(false);
 
-  useEffect(() => { let mounted = true; Promise.all([getCaseDetail(caseId), getCaseStatus(caseId)]).then(([caseData, statusData]) => { if (mounted) { setDetail(caseData); setTimeline(statusData); } }).catch(() => { if (mounted) setError('Unable to load this case.'); }).finally(() => { if (mounted) setLoading(false); }); return () => { mounted = false; }; }, [caseId]);
+  useEffect(() => {
+    let mounted = true;
+    // Loaded on its own so a failure here never hides the case itself.
+    getCaseComplaints(caseId)
+      .then((items) => { if (mounted) setComplaints(items); })
+      .catch(() => undefined);
+    Promise.all([getCaseDetail(caseId), getCaseStatus(caseId)])
+      .then(([caseData, statusData]) => {
+        if (mounted) {
+          setDetail(caseData);
+          setTimeline(statusData);
+        }
+      })
+      .catch(() => { if (mounted) setError('We could not load this case. Please try again.'); })
+      .finally(() => { if (mounted) setLoading(false); });
+    return () => { mounted = false; };
+  }, [caseId]);
 
-  const handleTabPress = (tab: string) => { if (tab === NavTab.Home) router.replace('/'); if (tab === NavTab.Cases) router.replace('/cases'); if (tab === NavTab.Messages) router.push('/messages'); if (tab === NavTab.Support) router.push('/legal-support'); };
+  const goToCases = () => router.replace('/cases');
 
-  if (loading) return <SafeAreaView style={styles.safeArea}><View style={styles.centerState}><ActivityIndicator color="#2875d0" /><Text style={styles.stateText}>Loading case details...</Text></View></SafeAreaView>;
-  if (error || !detail) return <SafeAreaView style={styles.safeArea}><View style={styles.centerState}><Text style={styles.errorText}>{error ?? 'Case not found.'}</Text><Pressable onPress={() => router.replace('/cases')}><Text style={styles.retryText}>Back to cases</Text></Pressable></View></SafeAreaView>;
+  const handleTabPress = (tab: string) => {
+    if (tab === NavTab.Home) router.replace('/');
+    if (tab === NavTab.Cases) goToCases();
+    if (tab === NavTab.Messages) router.push('/messages');
+    if (tab === NavTab.Support) router.push('/legal-support');
+  };
+
+  const header = (
+    <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+      <Pressable
+        accessibilityLabel="Back to cases"
+        accessibilityRole="button"
+        hitSlop={6}
+        onPress={goToCases}
+        style={({ pressed }) => [styles.iconButton, pressed && styles.pressed]}
+      >
+        <Ionicons color={colors.textPrimary} name="arrow-back" size={24} />
+      </Pressable>
+      <Text variant="pageTitle">Case details</Text>
+      <View style={styles.iconButton} />
+    </View>
+  );
+
+  if (loading || error || !detail) {
+    return (
+      <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: colors.canvas }]}>
+        {header}
+        {loading ? (
+          <StateView kind="loading" message="Loading case details…" />
+        ) : (
+          <StateView actionLabel="Back to cases" kind="error" message={error ?? 'This case could not be found.'} onAction={goToCases} title="Case unavailable" />
+        )}
+      </SafeAreaView>
+    );
+  }
 
   const status = getStatusConfig(detail.status);
-  return <SafeAreaView edges={['top']} style={styles.safeArea}>
-    <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-      <View style={styles.header}><Pressable accessibilityLabel="Back to cases" onPress={() => router.replace('/cases')} style={styles.backButton}><Ionicons color="#18303b" name="arrow-back" size={23} /></Pressable><Text style={styles.headerTitle}>Case details</Text><View style={styles.headerSpacer} /></View>
-      {detail.requiredAction ? <View style={styles.actionBanner}><Ionicons color="#b96925" name="alert-circle" size={24} /><View style={styles.actionCopy}><Text style={styles.actionTitle}>Action needed</Text><Text style={styles.actionText}>{detail.requiredAction}</Text></View></View> : null}
-      <View style={styles.summary}><View style={styles.summaryTop}><View style={styles.caseIcon}><Ionicons color="#2875d0" name="folder-open" size={22} /></View><View style={styles.summaryCopy}><Text style={styles.reference}>{detail.reference}</Text><Text style={styles.category}>{detail.category}</Text></View></View><View style={styles.statusLine}><View style={[styles.statusBadge, { backgroundColor: status.background }]}><Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text></View><Text style={styles.updated}>Updated {formatCaseDate(detail.lastUpdated)}</Text></View><Text style={styles.description}>{detail.description}</Text></View>
-      <Text style={styles.sectionTitle}>Case progress</Text>
-      <View style={styles.timeline}>{timeline.map((update, index) => { const updateStatus = getStatusConfig(update.status); const isLast = index === timeline.length - 1; return <View key={update.id} style={styles.timelineRow}><View style={styles.timelineRail}>{<View style={[styles.timelineIcon, update.completed ? { backgroundColor: updateStatus.background } : styles.inactiveIcon]}><Ionicons color={update.completed ? updateStatus.color : '#aeb9bd'} name={updateStatus.icon} size={19} /></View>}{!isLast ? <View style={[styles.line, update.completed && styles.completedLine]} /> : null}</View><View style={styles.timelineCopy}><Text style={[styles.timelineLabel, !update.completed && styles.inactiveLabel]}>{update.label}</Text><Text style={styles.timelineTime}>{formatCaseDateTime(update.timestamp)}</Text></View></View>; })}</View>
-    </ScrollView>
-    <BottomNavBar activeTab={NavTab.Cases} onTabPress={handleTabPress} />
-  </SafeAreaView>;
+  const canMessageOfficer = Boolean(detail.approved && detail.officer);
+  const officerName = detail.officer?.name || 'your officer';
+  const latestComplaint = complaints[0];
+  const hasActiveComplaint = Boolean(latestComplaint && isComplaintActive(latestComplaint.status));
+
+  return (
+    <SafeAreaView edges={['top']} style={[styles.safeArea, { backgroundColor: colors.canvas }]}>
+      {header}
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        {detail.requiredAction ? (
+          <View accessibilityRole="alert" style={[styles.banner, { backgroundColor: colors.warningSoft }]}>
+            <Ionicons color={colors.warning} name="alert-circle" size={24} />
+            <View style={styles.flex}>
+              <Text style={{ color: colors.warning }} variant="bodyStrong">Action needed</Text>
+              <Text color="textPrimary">{detail.requiredAction}</Text>
+            </View>
+          </View>
+        ) : null}
+
+        <Card style={styles.summary}>
+          <View style={styles.summaryTop}>
+            <View style={styles.flex}>
+              <Text color="textSecondary" selectable variant="caption">{detail.reference}</Text>
+              <Text variant="title">{detail.category}</Text>
+            </View>
+          </View>
+          <View style={styles.statusLine}>
+            <StatusPill background={status.background} color={status.color} icon={status.icon} label={status.label} />
+            <Text color="textTertiary" variant="caption">Updated {formatCaseDate(detail.lastUpdated)}</Text>
+          </View>
+          {detail.description ? (
+            <View style={[styles.description, { borderTopColor: colors.border }]}>
+              <Text color="textSecondary" variant="caption">What you reported</Text>
+              <Text>{detail.description}</Text>
+            </View>
+          ) : null}
+        </Card>
+
+        <View style={styles.messageAction}>
+          {canMessageOfficer ? (
+            <Button
+              fullWidth
+              icon="chatbubble-ellipses-outline"
+              iconPosition="leading"
+              label={`Message ${officerName}`}
+              onPress={() => router.push(`/cases/${caseId}/messages` as any)}
+            />
+          ) : (
+            <View style={[styles.lockedNote, { backgroundColor: colors.surfaceMuted }]}>
+              <Ionicons color={colors.textSecondary} name="lock-closed-outline" size={20} />
+              <Text color="textSecondary" style={styles.flex}>
+                {detail.officer
+                  ? 'Messaging opens once your officer approves the case.'
+                  : 'Messaging opens once an officer is assigned to your case.'}
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {latestComplaint ? (
+          <Card style={styles.complaint}>
+            <View style={styles.complaintTop}>
+              <Ionicons color={colors.textSecondary} name="flag-outline" size={20} />
+              <Text style={styles.flex} variant="bodyStrong">Your report about {officerName}</Text>
+            </View>
+            <Badge
+              icon={COMPLAINT_STATUS[latestComplaint.status].icon}
+              label={COMPLAINT_STATUS[latestComplaint.status].label}
+              tone={COMPLAINT_STATUS[latestComplaint.status].tone}
+            />
+            <Text color="textSecondary" variant="caption">
+              {complaintReasonLabel(latestComplaint.reason)} · Sent {formatCaseDate(latestComplaint.createdAt)}
+            </Text>
+            {latestComplaint.resolutionNote ? (
+              <View style={[styles.resolution, { backgroundColor: colors.surfaceMuted }]}>
+                <Text color="textSecondary" variant="caption">Message from JusticeNow admins</Text>
+                <Text>{latestComplaint.resolutionNote}</Text>
+              </View>
+            ) : hasActiveComplaint ? (
+              <Text color="textSecondary" variant="caption">
+                An admin will look into this. Your officer cannot see your report.
+              </Text>
+            ) : null}
+          </Card>
+        ) : null}
+
+        {detail.officer && !hasActiveComplaint ? (
+          <Button
+            fullWidth
+            icon="flag-outline"
+            iconPosition="leading"
+            label={latestComplaint ? 'Report another problem' : 'Report a problem with your officer'}
+            onPress={() => setIsReporting(true)}
+            variant="ghost"
+          />
+        ) : null}
+
+        <Text style={styles.sectionTitle} variant="heading">Progress</Text>
+        <Card>
+          {timeline.length === 0 ? (
+            <Text color="textSecondary">No updates yet. We will show each step here as your case moves forward.</Text>
+          ) : (
+            timeline.map((update, index) => {
+              const updateStatus = getStatusConfig(update.status);
+              const isLast = index === timeline.length - 1;
+              return (
+                <View key={update.id} style={styles.timelineRow}>
+                  <View style={styles.rail}>
+                    <View style={[styles.dot, { backgroundColor: update.completed ? updateStatus.background : colors.surfaceMuted }]}>
+                      <Ionicons color={update.completed ? updateStatus.color : colors.textTertiary} name={updateStatus.icon} size={18} />
+                    </View>
+                    {!isLast ? <View style={[styles.line, { backgroundColor: update.completed ? colors.success : colors.border }]} /> : null}
+                  </View>
+                  <View style={[styles.timelineCopy, !isLast && styles.timelineGap]}>
+                    <Text color={update.completed ? 'textPrimary' : 'textTertiary'} variant="bodyStrong">{update.label}</Text>
+                    <Text color="textTertiary" variant="caption">
+                      {formatCaseDateTime(update.timestamp)}{update.updatedBy === 'OFFICER' ? ' · Officer update' : ''}
+                    </Text>
+                  </View>
+                </View>
+              );
+            })
+          )}
+        </Card>
+      </ScrollView>
+      <BottomNavBar activeTab={NavTab.Cases} onTabPress={handleTabPress} />
+      {detail.officer ? (
+        <ReportOfficerSheet
+          caseId={caseId}
+          officerName={officerName}
+          onClose={() => setIsReporting(false)}
+          onSubmitted={(complaint) => {
+            setComplaints((current) => [complaint, ...current]);
+            setIsReporting(false);
+          }}
+          visible={isReporting}
+        />
+      ) : null}
+    </SafeAreaView>
+  );
 }
 
-const styles = StyleSheet.create({ safeArea: { backgroundColor: '#f5f8f7', flex: 1 }, content: { paddingBottom: 105, paddingHorizontal: 20 }, header: { alignItems: 'center', flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 16 }, backButton: { alignItems: 'center', height: 40, justifyContent: 'center', width: 40 }, headerTitle: { color: '#18303b', fontSize: 17, fontWeight: '800' }, headerSpacer: { width: 40 }, actionBanner: { alignItems: 'flex-start', backgroundColor: '#fff0df', borderRadius: 14, flexDirection: 'row', gap: 10, marginBottom: 16, padding: 14 }, actionCopy: { flex: 1 }, actionTitle: { color: '#8d4e1b', fontSize: 13, fontWeight: '800' }, actionText: { color: '#806549', fontSize: 12, lineHeight: 18, marginTop: 4 }, summary: { backgroundColor: '#ffffff', borderRadius: 16, padding: 16 }, summaryTop: { alignItems: 'center', flexDirection: 'row' }, caseIcon: { alignItems: 'center', backgroundColor: '#e8f1fb', borderRadius: 12, height: 44, justifyContent: 'center', width: 44 }, summaryCopy: { flex: 1, marginLeft: 12 }, reference: { color: '#718088', fontSize: 11, fontWeight: '700' }, category: { color: '#213943', fontSize: 15, fontWeight: '700', marginTop: 4 }, statusLine: { alignItems: 'center', borderTopColor: '#edf1f0', borderTopWidth: 1, flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, paddingTop: 12 }, statusBadge: { borderRadius: 12, paddingHorizontal: 9, paddingVertical: 5 }, statusText: { fontSize: 11, fontWeight: '700' }, updated: { color: '#87939b', fontSize: 11 }, description: { color: '#52646d', fontSize: 13, lineHeight: 19, marginTop: 16 }, sectionTitle: { color: '#18303b', fontSize: 18, fontWeight: '800', marginBottom: 16, marginTop: 28 }, timeline: { backgroundColor: '#ffffff', borderRadius: 16, padding: 18 }, timelineRow: { flexDirection: 'row', minHeight: 70 }, timelineRail: { alignItems: 'center', width: 34 }, timelineIcon: { alignItems: 'center', borderRadius: 18, height: 34, justifyContent: 'center', width: 34 }, inactiveIcon: { backgroundColor: '#f0f3f3' }, line: { backgroundColor: '#e3e9e8', flex: 1, marginVertical: 4, width: 2 }, completedLine: { backgroundColor: '#9dd2bf' }, timelineCopy: { flex: 1, paddingLeft: 12, paddingTop: 3 }, timelineLabel: { color: '#213943', fontSize: 14, fontWeight: '700' }, inactiveLabel: { color: '#87939b' }, timelineTime: { color: '#87939b', fontSize: 11, marginTop: 6 }, centerState: { alignItems: 'center', flex: 1, gap: 10, justifyContent: 'center', padding: 24 }, stateText: { color: '#87939b', fontSize: 14 }, errorText: { color: '#a33b3b', fontSize: 14, textAlign: 'center' }, retryText: { color: '#2875d0', fontSize: 14, fontWeight: '700', marginTop: 8 } });
+const styles = StyleSheet.create({
+  safeArea: { flex: 1 },
+  flex: { flex: 1 },
+  header: {
+    alignItems: 'center',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: Spacing.xs,
+  },
+  iconButton: { alignItems: 'center', height: Layout.minTapTarget, justifyContent: 'center', width: Layout.minTapTarget },
+  pressed: { opacity: 0.6 },
+  content: { paddingBottom: Layout.bottomNavInset, paddingHorizontal: Layout.screenPadding, paddingTop: Spacing.xl },
+  banner: { alignItems: 'flex-start', borderRadius: Radius.lg, flexDirection: 'row', gap: Spacing.md, marginBottom: Spacing.lg, padding: Spacing.lg },
+  summary: { gap: Spacing.lg },
+  summaryTop: { flexDirection: 'row', gap: Spacing.md },
+  statusLine: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, justifyContent: 'space-between' },
+  description: { borderTopWidth: StyleSheet.hairlineWidth, gap: Spacing.xs, paddingTop: Spacing.lg },
+  messageAction: { marginTop: Spacing.lg },
+  lockedNote: { alignItems: 'center', borderRadius: Radius.md, flexDirection: 'row', gap: Spacing.md, padding: Spacing.lg },
+  complaint: { gap: Spacing.sm, marginTop: Spacing.lg },
+  complaintTop: { alignItems: 'center', flexDirection: 'row', gap: Spacing.sm },
+  resolution: { borderRadius: Radius.md, gap: Spacing.xs, padding: Spacing.md },
+  sectionTitle: { marginBottom: Spacing.md, marginTop: Spacing.xxxl },
+  timelineRow: { flexDirection: 'row' },
+  rail: { alignItems: 'center', width: 36 },
+  dot: { alignItems: 'center', borderRadius: 18, height: 36, justifyContent: 'center', width: 36 },
+  line: { flex: 1, marginVertical: Spacing.xs, minHeight: 20, width: 2 },
+  timelineCopy: { flex: 1, gap: 2, paddingLeft: Spacing.md, paddingTop: Spacing.xs },
+  timelineGap: { paddingBottom: Spacing.xl },
+});

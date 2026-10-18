@@ -1,8 +1,8 @@
-import { io, type Socket } from 'socket.io-client';
+import { Platform } from 'react-native';
 
-import { API_URL, request } from './client';
-
-export const USE_MOCK_DATA = false;
+import { API_URL, request, requestMultipart } from './client';
+import { nativeFormDataFile } from './formDataFile';
+import { getSocket } from './socket';
 
 export interface Message {
   id: string;
@@ -23,59 +23,88 @@ export interface SendMessagePayload {
   recipientId?: string;
 }
 
-export const connectToChat = (caseId: string, onMessage: (message: Message) => void, accessToken?: string): Socket => {
-  const socket = io(API_URL, { transports: ['websocket'], auth: { token: accessToken } });
-  socket.on('connect', () => socket.emit('chat:join', caseId));
-  socket.on('chat:message', onMessage);
-  return socket;
+type ChatHandlers = {
+  onMessage: (message: Message) => void;
+  /** Fired after every successful (re)join — use it to fetch anything missed while offline. */
+  onJoined?: () => void;
+  onConnectionChange?: (connected: boolean) => void;
 };
 
-const mockMessages: Message[] = [
-  { id: 'message-001', caseId: 'JN-2026-0412', senderId: 'officer-014', senderName: 'Maya Perera', senderRole: 'OFFICER', content: 'Hello. I have reviewed the latest update on your case.', createdAt: '2026-08-22T09:15:00.000Z', isRead: true },
-  { id: 'message-002', caseId: 'JN-2026-0412', senderId: 'citizen-001', senderName: 'You', senderRole: 'CITIZEN', content: 'Thank you. Is there anything else you need from me?', createdAt: '2026-08-22T09:17:00.000Z', isRead: true },
-  { id: 'message-003', caseId: 'JN-2026-0412', senderId: 'officer-014', senderName: 'Maya Perera', senderRole: 'OFFICER', content: 'A copy of the incident report would help us complete the review.', createdAt: '2026-08-22T09:20:00.000Z', isRead: false },
-  { id: 'message-004', caseId: 'JN-2026-0412', senderId: 'citizen-001', senderName: 'You', senderRole: 'CITIZEN', content: 'I can send that today. I appreciate your help.', createdAt: '2026-08-22T09:24:00.000Z', isRead: true },
-  { id: 'message-005', caseId: 'JN-2026-0412', senderId: 'officer-014', senderName: 'Maya Perera', senderRole: 'OFFICER', content: 'That would be perfect. I will notify you when the review progresses.', createdAt: '2026-08-22T09:26:00.000Z', isRead: false },
-  { id: 'message-006', caseId: 'JN-2026-0412', senderId: 'officer-022', senderName: 'Daniel Silva', senderRole: 'OFFICER', content: 'I have added a note from the review team to your case.', createdAt: '2026-08-21T15:40:00.000Z', isRead: true },
-  { id: 'message-007', caseId: 'JN-2026-0412', senderId: 'officer-022', senderName: 'Daniel Silva', senderRole: 'OFFICER', content: 'Please let us know if you have any questions.', createdAt: '2026-08-21T15:42:00.000Z', isRead: false },
-];
+/**
+ * Live updates for one case conversation over the shared app socket.
+ * Re-joins the room automatically after every reconnect. Returns an unsubscribe.
+ */
+export function subscribeToChat(caseId: string, { onMessage, onJoined, onConnectionChange }: ChatHandlers): () => void {
+  const socket = getSocket();
+  // The server answers with the numeric id even when we joined by tracking code.
+  let joinedId: string | null = null;
 
-const wait = (duration: number) => new Promise((resolve) => setTimeout(resolve, duration));
+  const join = () => {
+    socket.emit('chat:join', caseId);
+    onConnectionChange?.(true);
+  };
+  const handleJoined = (id: string) => {
+    joinedId = id;
+    onJoined?.();
+  };
+  const handleMessage = (message: Message) => {
+    if (message.caseId === caseId || message.caseId === joinedId) onMessage(message);
+  };
+  const handleDisconnect = () => onConnectionChange?.(false);
+
+  socket.on('connect', join);
+  socket.on('disconnect', handleDisconnect);
+  socket.on('chat:joined', handleJoined);
+  socket.on('chat:message', handleMessage);
+  if (socket.connected) join();
+  else onConnectionChange?.(false);
+
+  return () => {
+    socket.emit('chat:leave', caseId);
+    socket.off('connect', join);
+    socket.off('disconnect', handleDisconnect);
+    socket.off('chat:joined', handleJoined);
+    socket.off('chat:message', handleMessage);
+  };
+}
+
+/**
+ * Attachment URLs are Supabase https links (current), or `/uploads/...` paths on the
+ * API server (older messages). A few old rows saved the full `http://<old-ip>:5000/uploads/...`
+ * address, which breaks once the laptop's IP changes, so those go through the current API host.
+ */
+export const resolveMediaUrl = (url: string) => {
+  const legacyUpload = url.match(/^https?:\/\/[^/]+(\/uploads\/.+)$/);
+  if (legacyUpload) return `${API_URL}${legacyUpload[1]}`;
+  return /^https?:\/\//.test(url) ? url : `${API_URL}${url.startsWith('/') ? '' : '/'}${url}`;
+};
+
+export const isImageAttachment = (attachment?: { url: string; type?: string; name?: string } | null) =>
+  Boolean(attachment && (attachment.type?.startsWith('image/') || /\.(jpe?g|png|webp|gif|heic)$/i.test(attachment.name || attachment.url)));
 
 export async function getMessages(caseId: string): Promise<Message[]> {
-  if (USE_MOCK_DATA) {
-    await wait(500);
-    return mockMessages.map((message) => ({ ...message, caseId }));
-  }
   return request<Message[]>(`/api/cases/${encodeURIComponent(caseId)}/messages`);
 }
 
 export async function sendMessage(caseId: string, payload: SendMessagePayload): Promise<Message> {
-  if (USE_MOCK_DATA) {
-    await wait(500);
-    return { id: `message-${Date.now()}`, caseId, senderId: 'citizen-001', senderName: 'You', senderRole: 'CITIZEN', content: payload.content, createdAt: new Date().toISOString(), isRead: false };
-  }
   return request<Message>(`/api/cases/${encodeURIComponent(caseId)}/messages`, { method: 'POST', body: JSON.stringify(payload) });
 }
 
 export async function markMessageAsRead(messageId: string): Promise<void> {
-  if (USE_MOCK_DATA) {
-    await wait(500);
-    return;
-  }
   await request<void>(`/api/messages/${encodeURIComponent(messageId)}/read`, { method: 'PUT' });
 }
 
-export async function uploadAttachment(file: { uri: string; name: string; type: string }, accessToken?: string) {
+export async function uploadAttachment(caseId: string, file: { uri: string; name: string; type: string; file?: Blob }) {
   const formData = new FormData();
-  formData.append('file', { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
-  const response = await fetch(`${API_URL}/api/messages/upload`, {
-    method: 'POST',
-    headers: accessToken ? { Authorization: `Bearer ${accessToken}` } : undefined,
-    body: formData,
-  });
-  if (!response.ok) throw new Error('Unable to upload this attachment.');
-  return response.json() as Promise<{ url: string; name: string; type: string }>;
+  if (Platform.OS === 'web') {
+    // Browsers need real file data; the { uri } shape below only works natively.
+    const blob: Blob = file.file ?? (await (await fetch(file.uri)).blob());
+    formData.append('file', blob, file.name);
+  } else {
+    formData.append('file', nativeFormDataFile(file.uri, file.name, file.type));
+  }
+  // requestMultipart refreshes an expired token and surfaces the server's error message.
+  return requestMultipart<{ url: string; name: string; type: string }>(`/api/cases/${encodeURIComponent(caseId)}/messages/upload`, formData);
 }
 
 export interface Officer {
