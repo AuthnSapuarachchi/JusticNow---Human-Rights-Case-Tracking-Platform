@@ -519,7 +519,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
           {activeTab === 'info' && (
             <View style={styles.infoTabContainer}>
               <View style={styles.infoTabHeader}>
-                <Text color="textSecondary" variant="caption">
+                <Text color="textSecondary" style={styles.sectionLabel} variant="caption">
                   COMMUNICATIONS & REQUESTS TO CITIZEN
                 </Text>
                 {canAct && (
@@ -564,7 +564,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
           {activeTab === 'referrals' && (
             <View style={styles.referralsContainer}>
               <View style={styles.infoTabHeader}>
-                <Text color="textSecondary" variant="caption">
+                <Text color="textSecondary" style={styles.sectionLabel} variant="caption">
                   LEGAL ORGANIZATIONS & EXTERNAL COUNSEL
                 </Text>
                 {canAct && (
@@ -633,6 +633,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
           <View style={styles.adminButtonsRow}>
             {!isUrgent && (
               <Button
+                fullWidth
                 icon="flame-outline"
                 label="Escalate Case"
                 onPress={() => setShowEscalateModal(true)}
@@ -641,6 +642,7 @@ export function CaseReviewScreen({ caseId: propCaseId }: CaseReviewScreenProps) 
             )}
             {caseDetail.status !== 'CLOSED' && (
               <Button
+                fullWidth
                 icon="lock-closed-outline"
                 label="Close Case"
                 onPress={() => setShowCloseModal(true)}
@@ -858,8 +860,14 @@ const styles = StyleSheet.create({
   },
   infoTabHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.sm,
+  },
+  sectionLabel: {
+    flex: 1,
+    minWidth: 160,
   },
   infoReqCard: {
     padding: Spacing.md,
@@ -867,8 +875,10 @@ const styles = StyleSheet.create({
   },
   infoReqHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.xs,
   },
   referralsContainer: {
     gap: Spacing.md,
@@ -907,7 +917,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.md,
   },
   adminButtonsRow: {
-    flexDirection: 'row',
     gap: Spacing.sm,
   },
   readOnlyNotice: {

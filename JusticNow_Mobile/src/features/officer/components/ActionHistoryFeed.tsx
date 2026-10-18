@@ -238,8 +238,10 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.sm,
   },
   manualCard: {
     padding: Spacing.md,
@@ -290,8 +292,10 @@ const styles = StyleSheet.create({
   },
   actionHeader: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: Spacing.xs,
   },
   tagWrap: {
     flexDirection: 'row',
